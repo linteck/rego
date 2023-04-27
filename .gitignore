@@ -16,6 +16,13 @@
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+.DS_Store
+*~
+*.aar
+*.apk
+*.tar.gz
+.idea
+.vscode
 
 # Go workspace file
 go.work
