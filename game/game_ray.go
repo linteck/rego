@@ -2,17 +2,14 @@ package game
 
 import (
 	"fmt"
-	"log"
 	"math"
 	"math/rand"
 	"os"
-	"runtime"
-	"strings"
 
 	"image/color"
 	_ "image/png"
 
-	"github.com/harbdog/raycaster-go-demo/game/model"
+	"lintech/rego/game/model"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -20,278 +17,13 @@ import (
 	"github.com/harbdog/raycaster-go"
 	"github.com/harbdog/raycaster-go/geom"
 	"github.com/harbdog/raycaster-go/geom3d"
-	"github.com/spf13/viper"
-)
-
-const (
-	//--RaycastEngine constants
-	//--set constant, texture size to be the wall (and sprite) texture size--//
-	texWidth = 256
-
-	// distance to keep away from walls and obstacles to avoid clipping
-	// TODO: may want a smaller distance to test vs. sprites
-	clipDistance = 0.1
 )
 
 // Game - This is the main type for your game.
-type Game struct {
-	menu   *DemoMenu
-	paused bool
-
-	//--create slicer and declare slices--//
-	tex                *TextureHandler
-	initRenderFloorTex bool
-
-	// window resolution and scaling
-	screenWidth  int
-	screenHeight int
-	renderScale  float64
-	fullscreen   bool
-	vsync        bool
-	fovDegrees   float64
-	fovDepth     float64
-
-	//--viewport width / height--//
-	width  int
-	height int
-
-	player *model.Player
-
-	//--define camera and render scene--//
-	camera *raycaster.Camera
-	scene  *ebiten.Image
-
-	mouseMode      MouseMode
-	mouseX, mouseY int
-
-	crosshairs *model.Crosshairs
-
-	// zoom settings
-	zoomFovDepth float64
-
-	renderDistance float64
-
-	// lighting settings
-	lightFalloff       float64
-	globalIllumination float64
-	minLightRGB        color.NRGBA
-	maxLightRGB        color.NRGBA
-
-	//--array of levels, levels refer to "floors" of the world--//
-	mapObj       *model.Map
-	collisionMap []geom.Line
-
-	sprites     map[*model.Sprite]struct{}
-	projectiles map[*model.Projectile]struct{}
-	effects     map[*model.Effect]struct{}
-
-	mapWidth, mapHeight int
-
-	showSpriteBoxes bool
-	osType          osType
-	debug           bool
-}
-
-type osType int
-
-const (
-	osTypeDesktop osType = iota
-	osTypeBrowser
-)
-
-// NewGame - Allows the game to perform any initialization it needs to before starting to run.
-// This is where it can query for any required services and load any non-graphic
-// related content.  Calling base.Initialize will enumerate through any components
-// and initialize them as well.
-func NewGame() *Game {
-	fmt.Printf("Initializing Game\n")
-
-	// initialize Game object
-	g := new(Game)
-
-	g.initConfig()
-
-	ebiten.SetWindowTitle("Raycaster-Go Demo")
-
-	// default TPS is 60
-	// ebiten.SetMaxTPS(60)
-
-	// use scale to keep the desired window width and height
-	g.setResolution(g.screenWidth, g.screenHeight)
-	g.setRenderScale(g.renderScale)
-	g.setFullscreen(g.fullscreen)
-	g.setVsyncEnabled(g.vsync)
-
-	// load map
-	g.mapObj = model.NewMap()
-
-	// load texture handler
-	g.tex = NewTextureHandler(g.mapObj, 32)
-	g.tex.renderFloorTex = g.initRenderFloorTex
-
-	g.collisionMap = g.mapObj.GetCollisionLines(clipDistance)
-	worldMap := g.mapObj.Level(0)
-	g.mapWidth = len(worldMap)
-	g.mapHeight = len(worldMap[0])
-
-	// load content once when first run
-	g.loadContent()
-
-	// create crosshairs and weapon
-	g.crosshairs = model.NewCrosshairs(1, 1, 2.0, g.tex.textures[16], 8, 8, 55, 57)
-
-	// init player model
-	angleDegrees := 60.0
-	g.player = model.NewPlayer(8.5, 3.5, geom.Radians(angleDegrees), 0)
-	g.player.CollisionRadius = clipDistance
-	g.player.CollisionHeight = 0.5
-
-	// init the sprites
-	g.loadSprites()
-
-	if g.osType == osTypeBrowser {
-		// web browser cannot start with cursor captured
-	} else {
-		ebiten.SetCursorMode(ebiten.CursorModeCaptured)
-	}
-
-	// init mouse look mode
-	g.mouseMode = MouseModeLook
-	g.mouseX, g.mouseY = math.MinInt32, math.MinInt32
-
-	//--init camera and renderer--//
-	g.camera = raycaster.NewCamera(g.width, g.height, texWidth, g.mapObj, g.tex)
-	g.setRenderDistance(g.renderDistance)
-
-	g.camera.SetFloorTexture(getTextureFromFile("floor.png"))
-	g.camera.SetSkyTexture(getTextureFromFile("sky.png"))
-
-	// initialize camera to player position
-	g.updatePlayerCamera(true)
-	g.setFovAngle(g.fovDegrees)
-	g.fovDepth = g.camera.FovDepth()
-
-	g.zoomFovDepth = 2.0
-
-	// set demo lighting settings
-	g.setLightFalloff(-200)
-	g.setGlobalIllumination(500)
-	minLightRGB := color.NRGBA{R: 76, G: 76, B: 76}
-	maxLightRGB := color.NRGBA{R: 255, G: 255, B: 255}
-	g.setLightRGB(minLightRGB, maxLightRGB)
-
-	// init menu system
-	g.menu = createMenu(g)
-
-	return g
-}
-
-func (g *Game) initConfig() {
-	viper.SetConfigName("demo-config")
-	viper.SetConfigType("json")
-
-	// special behavior needed for wasm play
-	switch runtime.GOOS {
-	case "js":
-		g.osType = osTypeBrowser
-	default:
-		g.osType = osTypeDesktop
-	}
-
-	// setup environment variable with DEMO as prefix (e.g. "export DEMO_SCREEN_VSYNC=false")
-	viper.SetEnvPrefix("demo")
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	viper.AutomaticEnv()
-
-	userHomePath, _ := os.UserHomeDir()
-	if userHomePath != "" {
-		userHomePath = userHomePath + "/.raycaster-go-demo"
-		viper.AddConfigPath(userHomePath)
-	}
-	viper.AddConfigPath(".")
-
-	// set default config values
-	viper.SetDefault("debug", false)
-	viper.SetDefault("showSpriteBoxes", false)
-	viper.SetDefault("screen.fullscreen", false)
-	viper.SetDefault("screen.vsync", true)
-	viper.SetDefault("screen.renderDistance", -1)
-	viper.SetDefault("screen.renderFloor", true)
-	viper.SetDefault("screen.fovDegrees", 68)
-
-	if g.osType == osTypeBrowser {
-		viper.SetDefault("screen.width", 800)
-		viper.SetDefault("screen.height", 600)
-		viper.SetDefault("screen.renderScale", 0.5)
-	} else {
-		viper.SetDefault("screen.width", 1024)
-		viper.SetDefault("screen.height", 768)
-		viper.SetDefault("screen.renderScale", 1.0)
-	}
-
-	err := viper.ReadInConfig()
-	if err != nil && g.debug {
-		fmt.Print(err)
-	}
-
-	// get config values
-	g.screenWidth = viper.GetInt("screen.width")
-	g.screenHeight = viper.GetInt("screen.height")
-	g.fovDegrees = viper.GetFloat64("screen.fovDegrees")
-	g.renderScale = viper.GetFloat64("screen.renderScale")
-	g.fullscreen = viper.GetBool("screen.fullscreen")
-	g.vsync = viper.GetBool("screen.vsync")
-	g.renderDistance = viper.GetFloat64("screen.renderDistance")
-	g.initRenderFloorTex = viper.GetBool("screen.renderFloor")
-	g.showSpriteBoxes = viper.GetBool("showSpriteBoxes")
-	g.debug = viper.GetBool("debug")
-}
-
-func (g *Game) SaveConfig() error {
-	userConfigPath, _ := os.UserHomeDir()
-	if userConfigPath == "" {
-		userConfigPath = "./"
-	}
-	userConfigPath += "/.raycaster-go-demo"
-
-	userConfig := userConfigPath + "/demo-config.json"
-	fmt.Print("Saving config file ", userConfig)
-
-	if _, err := os.Stat(userConfigPath); os.IsNotExist(err) {
-		err = os.MkdirAll(userConfigPath, os.ModePerm)
-		if err != nil {
-			fmt.Print(err)
-			return err
-		}
-	}
-	err := viper.WriteConfigAs(userConfig)
-	if err != nil {
-		fmt.Print(err)
-	}
-
-	return err
-}
-
-// Run is the Ebiten Run loop caller
-func (g *Game) Run() {
-	g.paused = false
-
-	if err := ebiten.RunGame(g); err != nil {
-		log.Fatal(err)
-	}
-}
-
-// Layout takes the outside size (e.g., the window size) and returns the (logical) screen size.
-// If you don't have to adjust the screen size with the outside size, just return a fixed size.
-func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
-	w, h := int(float64(g.screenWidth)), int(float64(g.screenHeight))
-	g.menu.layout(w, h)
-	return int(w), int(h)
-}
 
 // Update - Allows the game to run logic such as updating the world, gathering input, and playing audio.
 // Update is called every tick (1/60 [s] by default).
-func (g *Game) Update() error {
+func (g *Game) RayUpdate() error {
 	// handle input (when paused making sure only to allow input for closing menu so it can be unpaused)
 	g.handleInput()
 
@@ -316,7 +48,7 @@ func (g *Game) Update() error {
 
 // Draw draws the game screen.
 // Draw is called every frame (typically 1/60[s] for 60Hz display).
-func (g *Game) Draw(screen *ebiten.Image) {
+func (g *Game) RayDraw(screen *ebiten.Image) {
 	// Put projectiles together with sprites for raycasting both as sprites
 	numSprites, numProjectiles, numEffects := len(g.sprites), len(g.projectiles), len(g.effects)
 	raycastSprites := make([]raycaster.Sprite, numSprites+numProjectiles+numEffects)

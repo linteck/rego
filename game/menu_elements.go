@@ -45,7 +45,7 @@ func footerContainer(menu *DemoMenu) *widget.Container {
 		}),
 	)))
 	c.AddChild(widget.NewText(
-		widget.TextOpts.Text("github.com/harbdog/raycaster-go-demo", res.text.smallFace, res.text.disabledColor)))
+		widget.TextOpts.Text("github.com/linteck/rego", res.text.smallFace, res.text.disabledColor)))
 	return c
 }
 

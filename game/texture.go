@@ -3,7 +3,7 @@ package game
 import (
 	"image"
 
-	"github.com/harbdog/raycaster-go-demo/game/model"
+	"lintech/rego/game/model"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )

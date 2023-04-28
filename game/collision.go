@@ -4,8 +4,9 @@ import (
 	"math"
 	"sort"
 
+	"lintech/rego/game/model"
+
 	"github.com/harbdog/raycaster-go"
-	"github.com/harbdog/raycaster-go-demo/game/model"
 	"github.com/harbdog/raycaster-go/geom"
 )
 

@@ -5,7 +5,7 @@ import (
 	"image/color"
 	"sort"
 
-	"github.com/harbdog/raycaster-go-demo/game/model"
+	"lintech/rego/game/model"
 )
 
 func (g *Game) miniMap() *image.RGBA {
