@@ -100,7 +100,7 @@ func NewRegoter[T IThing](coreMsgbox chan<- iregoter.IRegoterEvent, t T) *Regote
 	//        It will be Dead Lock!!!
 	// 			  So we set Regoter chan buffer size to 100 and keep Core buffer size at 1.
 	//				So Core will not be blocked on Sending. And Regoter need wait Core.
-	c := make(chan iregoter.ICoreEvent, 100)
+	c := make(chan iregoter.ICoreEvent, 10)
 	r := &Regoter[T]{id, c, coreMsgbox, t}
 	go func() {
 		info := r.thing.Update()
