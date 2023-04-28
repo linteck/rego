@@ -31,18 +31,23 @@ type IRegoterEvent interface {
 }
 
 type RegoterEventNewRegoter struct {
-	Msgbox   chan<- ICoreEvent
-	RgId     ID
-	Position RgPosition
-	Img      *ebiten.Image
+	Msgbox chan<- ICoreEvent
+	RgId   ID
+	Info   RegoterUpdatedInfo
 }
 
 type RegoterEventRegoterDeleted struct {
 	RgId ID
 }
 
-type RegoterEventUpdated struct {
-	RgId     ID
+type RegoterUpdatedInfo struct {
 	Position RgPosition
 	Img      *ebiten.Image
+	Changed  bool
+	Visiable bool
+	Deleted  bool
+}
+type RegoterEventUpdated struct {
+	RgId ID
+	Info RegoterUpdatedInfo
 }

@@ -27,23 +27,28 @@ const (
 
 func RandomPosition(xlimit int, ylimit int) iregoter.RgPosition {
 	x := rand.Intn(xlimit / 4)
-	y := rand.Intn(ylimit)
+	y := rand.Intn(ylimit - frameHeight)
 	return iregoter.RgPosition{X: x, Y: y}
 }
 
-func (s *SpiteWalker) Update() (iregoter.RgPosition, *ebiten.Image) {
+func (s *SpiteWalker) Update() iregoter.RegoterUpdatedInfo {
 	s.count += 1
 	if s.count%5 == 0 {
 		s.position.X += rand.Intn(5)
-		if s.position.X+frameWidth >= screenWidth || s.position.Y+frameHeight >= screenHeight {
-			s.position = RandomPosition(screenWidth, screenHeight)
+		if s.position.X+frameWidth >= screenWidth {
+			s.position.X = 0
+		}
+		if s.position.Y+frameHeight >= screenHeight {
+			s.position.Y = rand.Intn(screenHeight - frameHeight)
 		}
 	}
 	i := (s.count / 5) % frameCount
 	sx, sy := frameOX+i*frameWidth, frameOY
 	//logger.Print("sub image (", sx, ", ", sy, ")")
 	currImg := s.fullimg.SubImage(image.Rect(sx, sy, sx+frameWidth, sy+frameHeight)).(*ebiten.Image)
-	return s.position, currImg
+	info := iregoter.RegoterUpdatedInfo{Position: s.position, Img: currImg,
+		Visiable: true, Deleted: false, Changed: true}
+	return info
 }
 
 func NewSpiteWalker(coreMsgbox chan<- iregoter.IRegoterEvent) *Regoter[*SpiteWalker] {
