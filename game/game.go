@@ -3,6 +3,8 @@ package game
 import (
 	"lintech/rego/iregoter"
 	"lintech/rego/regoter"
+	"math/rand"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -45,7 +47,10 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 	return screenWidth, screenHeight
 }
 
-func NewGame() {
+func NewGame() *Game {
+	rand.Seed(time.Now().UnixNano())
+	//debug.SetMaxThreads(20000)
+
 	ebiten.SetWindowSize(screenWidth*2, screenHeight*2)
 	ebiten.SetWindowTitle("Animation (Ebitengine Demo)")
 
@@ -55,5 +60,5 @@ func NewGame() {
 	}
 
 	g := &Game{txToCore, rxFromCore}
-	g.Run()
+	return g
 }
