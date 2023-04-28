@@ -1,7 +1,6 @@
 package game
 
 import (
-	"fmt"
 	"math"
 	"math/rand"
 	"os"
@@ -12,157 +11,12 @@ import (
 	"lintech/rego/game/model"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
-	"github.com/harbdog/raycaster-go"
 	"github.com/harbdog/raycaster-go/geom"
 	"github.com/harbdog/raycaster-go/geom3d"
 )
 
 // Game - This is the main type for your game.
-
-// Update - Allows the game to run logic such as updating the world, gathering input, and playing audio.
-// Update is called every tick (1/60 [s] by default).
-func (g *Game) RayUpdate() error {
-	// handle input (when paused making sure only to allow input for closing menu so it can be unpaused)
-	g.handleInput()
-
-	if !g.paused {
-		// Perform logical updates
-		w := g.player.Weapon
-		if w != nil {
-			w.Update()
-		}
-		g.updateProjectiles()
-		g.updateSprites()
-
-		// handle player camera movement
-		g.updatePlayerCamera(false)
-	}
-
-	// update the menu (if active)
-	g.menu.update()
-
-	return nil
-}
-
-// Draw draws the game screen.
-// Draw is called every frame (typically 1/60[s] for 60Hz display).
-func (g *Game) RayDraw(screen *ebiten.Image) {
-	// Put projectiles together with sprites for raycasting both as sprites
-	numSprites, numProjectiles, numEffects := len(g.sprites), len(g.projectiles), len(g.effects)
-	raycastSprites := make([]raycaster.Sprite, numSprites+numProjectiles+numEffects)
-	index := 0
-	for sprite := range g.sprites {
-		raycastSprites[index] = sprite
-		index += 1
-	}
-	for projectile := range g.projectiles {
-		raycastSprites[index] = projectile.Sprite
-		index += 1
-	}
-	for effect := range g.effects {
-		raycastSprites[index] = effect.Sprite
-		index += 1
-	}
-
-	// Update camera (calculate raycast)
-	g.camera.Update(raycastSprites)
-
-	// Render raycast scene
-	g.camera.Draw(g.scene)
-
-	// draw equipped weapon
-	if g.player.Weapon != nil {
-		w := g.player.Weapon
-		op := &ebiten.DrawImageOptions{}
-		op.Filter = ebiten.FilterNearest
-
-		weaponScale := w.Scale() * g.renderScale
-		op.GeoM.Scale(weaponScale, weaponScale)
-		op.GeoM.Translate(
-			float64(g.width)/2-float64(w.W)*weaponScale/2,
-			float64(g.height)-float64(w.H)*weaponScale+1,
-		)
-
-		// apply lighting setting
-		op.ColorScale.Scale(float32(g.maxLightRGB.R)/255, float32(g.maxLightRGB.G)/255, float32(g.maxLightRGB.B)/255, 1)
-
-		g.scene.DrawImage(w.Texture(), op)
-	}
-
-	if g.showSpriteBoxes {
-		// draw sprite screen indicators to show we know where it was raycasted (must occur after camera.Update)
-		for sprite := range g.sprites {
-			drawSpriteBox(g.scene, sprite)
-		}
-
-		for sprite := range g.projectiles {
-			drawSpriteBox(g.scene, sprite.Sprite)
-		}
-
-		for sprite := range g.effects {
-			drawSpriteBox(g.scene, sprite.Sprite)
-		}
-	}
-
-	// draw sprite screen indicator only for sprite at point of convergence
-	convergenceSprite := g.camera.GetConvergenceSprite()
-	if convergenceSprite != nil {
-		for sprite := range g.sprites {
-			if convergenceSprite == sprite {
-				drawSpriteIndicator(g.scene, sprite)
-				break
-			}
-		}
-	}
-
-	// draw raycasted scene
-	op := &ebiten.DrawImageOptions{}
-	if g.renderScale < 1 {
-		op.Filter = ebiten.FilterNearest
-		op.GeoM.Scale(1/g.renderScale, 1/g.renderScale)
-	}
-	screen.DrawImage(g.scene, op)
-
-	// draw minimap
-	mm := g.miniMap()
-	mmImg := ebiten.NewImageFromImage(mm)
-	if mmImg != nil {
-		op := &ebiten.DrawImageOptions{}
-		op.Filter = ebiten.FilterNearest
-
-		op.GeoM.Scale(5.0, 5.0)
-		op.GeoM.Translate(0, 50)
-		screen.DrawImage(mmImg, op)
-	}
-
-	// draw crosshairs
-	if g.crosshairs != nil {
-		op := &ebiten.DrawImageOptions{}
-		op.Filter = ebiten.FilterNearest
-
-		crosshairScale := g.crosshairs.Scale()
-		op.GeoM.Scale(crosshairScale, crosshairScale)
-		op.GeoM.Translate(
-			float64(g.screenWidth)/2-float64(g.crosshairs.W)*crosshairScale/2,
-			float64(g.screenHeight)/2-float64(g.crosshairs.H)*crosshairScale/2,
-		)
-		screen.DrawImage(g.crosshairs.Texture(), op)
-
-		if g.crosshairs.IsHitIndicatorActive() {
-			screen.DrawImage(g.crosshairs.HitIndicator.Texture(), op)
-			g.crosshairs.Update()
-		}
-	}
-
-	// draw menu (if active)
-	g.menu.draw(screen)
-
-	// draw FPS/TPS counter debug display
-	fps := fmt.Sprintf("FPS: %f\nTPS: %f/%v", ebiten.ActualFPS(), ebiten.ActualTPS(), ebiten.TPS())
-	ebitenutil.DebugPrint(screen, fps)
-}
 
 func drawSpriteBox(screen *ebiten.Image, sprite *model.Sprite) {
 	r := sprite.ScreenRect()
