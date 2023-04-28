@@ -9,6 +9,7 @@ import (
 
 	"github.com/chen3feng/stl4go"
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
 
 var logger = log.New(os.Stdout, "Core ", 0)
@@ -110,6 +111,10 @@ func (g *Core) eventHandleGameEventDraw(e iregoter.GameEventDraw) {
 		//op.GeoM.Translate(screenWidth/2, screenHeight/2)
 		e.Screen.DrawImage(v.updatedInfo.Img, op)
 	})
+	// draw FPS/TPS counter debug display
+	fps := fmt.Sprintf("FPS: %f\nTPS: %f/%v", ebiten.ActualFPS(), ebiten.ActualTPS(), ebiten.TPS())
+	ebitenutil.DebugPrint(e.Screen, fps)
+
 	r := iregoter.CoreEventDrawDone{}
 	g.txToGame <- r
 
