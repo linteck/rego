@@ -1,9 +1,10 @@
-package game
+package core
 
 import (
 	"math"
 	"sort"
 
+	"lintech/rego/game/loader"
 	"lintech/rego/game/model"
 
 	"github.com/harbdog/raycaster-go"
@@ -163,19 +164,19 @@ func (g *Game) getValidMove(entity *model.Entity, moveX, moveY, moveZ float64, c
 
 	switch {
 	case ix < 0 || newX < 0:
-		newX = clipDistance
+		newX = loader.ClipDistance
 		ix = 0
 	case ix >= g.mapWidth:
-		newX = float64(g.mapWidth) - clipDistance
+		newX = float64(g.mapWidth) - loader.ClipDistance
 		ix = int(newX)
 	}
 
 	switch {
 	case iy < 0 || newY < 0:
-		newY = clipDistance
+		newY = loader.ClipDistance
 		iy = 0
 	case iy >= g.mapHeight:
-		newY = float64(g.mapHeight) - clipDistance
+		newY = float64(g.mapHeight) - loader.ClipDistance
 		iy = int(newY)
 	}
 

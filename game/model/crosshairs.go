@@ -29,9 +29,10 @@ type SpriteSheet struct {
 
 var crosshairsResource *resourceCrosshairs
 
-func resource() *resourceCrosshairs {
+func loadCrosshairsResource() *resourceCrosshairs {
 	if crosshairsResource == nil {
-		crosshairsResource.texture = loader.GetSpriteFromFile("crosshairs_sheet.png")
+		texture := loader.GetSpriteFromFile("crosshairs_sheet.png")
+		crosshairsResource = &resourceCrosshairs{texture: texture}
 	}
 	return crosshairsResource
 }
@@ -39,6 +40,7 @@ func resource() *resourceCrosshairs {
 //g.tex.textures[16] = getSpriteFromFile("crosshairs_sheet.png")
 
 func NewCrosshairs(coreMsgbox chan<- iregoter.IRegoterEvent) *regoter.Regoter[*Crosshairs] {
+	loadCrosshairsResource()
 	s := SpriteSheet{1, 1, 2.0, crosshairsResource.texture, 8, 8, 55, 57}
 
 	mapColor := color.RGBA{0, 0, 0, 0}

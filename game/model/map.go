@@ -109,19 +109,19 @@ func NewMap() *Map {
 	return m
 }
 
-func (m *Map) GetCollisionLines(clipDistance float64) []geom.Line {
+func (m *Map) GetCollisionLines(loader.ClipDistance float64) []geom.Line {
 	if len(m.worldMap) == 0 || len(m.worldMap[0]) == 0 {
 		return []geom.Line{}
 	}
 
-	lines := geom.Rect(clipDistance, clipDistance,
-		float64(len(m.worldMap))-2*clipDistance, float64(len(m.worldMap[0]))-2*clipDistance)
+	lines := geom.Rect(loader.ClipDistance, loader.ClipDistance,
+		float64(len(m.worldMap))-2*loader.ClipDistance, float64(len(m.worldMap[0]))-2*loader.ClipDistance)
 
 	for x, row := range m.worldMap {
 		for y, value := range row {
 			if value > 0 {
-				lines = append(lines, geom.Rect(float64(x)-clipDistance, float64(y)-clipDistance,
-					1.0+(2*clipDistance), 1.0+(2*clipDistance))...)
+				lines = append(lines, geom.Rect(float64(x)-loader.ClipDistance, float64(y)-loader.ClipDistance,
+					1.0+(2*loader.ClipDistance), 1.0+(2*loader.ClipDistance))...)
 			}
 		}
 	}

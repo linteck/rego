@@ -41,7 +41,8 @@ type ScreenSize struct {
 }
 
 type Vision struct {
-	ScreenSize ScreenSize
+	ScreenSize   ScreenSize
+	HasCollision bool
 }
 
 type CoreEventTick struct {

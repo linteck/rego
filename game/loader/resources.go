@@ -17,6 +17,10 @@ const (
 	//--RaycastEngine constants
 	//--set constant, texture size to be the wall (and sprite) texture size--//
 	TexWidth = 256
+
+	// distance to keep away from walls and obstacles to avoid clipping
+	// TODO: may want a smaller distance to test vs. sprites
+	ClipDistance = 0.1
 )
 
 // loadContent will be called once per game and is the place to load

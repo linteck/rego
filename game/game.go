@@ -26,12 +26,6 @@ import (
 //go:embed resources
 var embedded embed.FS
 
-const (
-	// distance to keep away from walls and obstacles to avoid clipping
-	// TODO: may want a smaller distance to test vs. sprites
-	clipDistance = 0.1
-)
-
 type osType int
 
 const (
@@ -289,7 +283,7 @@ func NewGame() *Game {
 	g.tex = NewTextureHandler(g.mapObj, 32)
 	g.tex.renderFloorTex = g.initRenderFloorTex
 
-	g.collisionMap = g.mapObj.GetCollisionLines(clipDistance)
+	g.collisionMap = g.mapObj.GetCollisionLines(loader.ClipDistance)
 	worldMap := g.mapObj.Level(0)
 	g.mapWidth = len(worldMap)
 	g.mapHeight = len(worldMap[0])
@@ -300,12 +294,6 @@ func NewGame() *Game {
 
 	// create crosshairs and weapon
 	g.crosshairs = model.NewCrosshairs(txToCore)
-
-	// init player model
-	angleDegrees := 60.0
-	g.player = model.NewPlayer(8.5, 3.5, geom.Radians(angleDegrees), 0)
-	g.player.CollisionRadius = clipDistance
-	g.player.CollisionHeight = 0.5
 
 	// Todo
 	// init the sprites
