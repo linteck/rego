@@ -2,6 +2,7 @@ package game
 
 import (
 	"image/color"
+	"lintech/rego/game/loader"
 	"strconv"
 
 	"github.com/ebitenui/ebitenui/image"
@@ -315,14 +316,14 @@ func loadFont(path string, size float64) (font.Face, error) {
 }
 
 func loadGraphicImages(idle string, disabled string) (*widget.ButtonImageImage, error) {
-	idleImage, _, err := newImageFromFile(idle)
+	idleImage, _, err := loader.NewImageFromFile(idle)
 	if err != nil {
 		return nil, err
 	}
 
 	var disabledImage *ebiten.Image
 	if disabled != "" {
-		disabledImage, _, err = newImageFromFile(disabled)
+		disabledImage, _, err = loader.NewImageFromFile(disabled)
 		if err != nil {
 			return nil, err
 		}
@@ -335,7 +336,7 @@ func loadGraphicImages(idle string, disabled string) (*widget.ButtonImageImage, 
 }
 
 func loadImageNineSlice(path string, centerWidth int, centerHeight int) (*image.NineSlice, error) {
-	i, _, err := newImageFromFile(path)
+	i, _, err := loader.NewImageFromFile(path)
 	if err != nil {
 		return nil, err
 	}
@@ -507,37 +508,37 @@ func newComboButtonResources(fonts *fonts) (*comboButtonResources, error) {
 }
 
 func newListResources(fonts *fonts) (*listResources, error) {
-	idle, _, err := newImageFromFile("resources/menu/ui/list-idle.png")
+	idle, _, err := loader.NewImageFromFile("resources/menu/ui/list-idle.png")
 	if err != nil {
 		return nil, err
 	}
 
-	disabled, _, err := newImageFromFile("resources/menu/ui/list-disabled.png")
+	disabled, _, err := loader.NewImageFromFile("resources/menu/ui/list-disabled.png")
 	if err != nil {
 		return nil, err
 	}
 
-	mask, _, err := newImageFromFile("resources/menu/ui/list-mask.png")
+	mask, _, err := loader.NewImageFromFile("resources/menu/ui/list-mask.png")
 	if err != nil {
 		return nil, err
 	}
 
-	trackIdle, _, err := newImageFromFile("resources/menu/ui/list-track-idle.png")
+	trackIdle, _, err := loader.NewImageFromFile("resources/menu/ui/list-track-idle.png")
 	if err != nil {
 		return nil, err
 	}
 
-	trackDisabled, _, err := newImageFromFile("resources/menu/ui/list-track-disabled.png")
+	trackDisabled, _, err := loader.NewImageFromFile("resources/menu/ui/list-track-disabled.png")
 	if err != nil {
 		return nil, err
 	}
 
-	handleIdle, _, err := newImageFromFile("resources/menu/ui/slider-handle-idle.png")
+	handleIdle, _, err := loader.NewImageFromFile("resources/menu/ui/slider-handle-idle.png")
 	if err != nil {
 		return nil, err
 	}
 
-	handleHover, _, err := newImageFromFile("resources/menu/ui/slider-handle-hover.png")
+	handleHover, _, err := loader.NewImageFromFile("resources/menu/ui/slider-handle-hover.png")
 	if err != nil {
 		return nil, err
 	}
@@ -594,27 +595,27 @@ func newListResources(fonts *fonts) (*listResources, error) {
 }
 
 func newSliderResources() (*sliderResources, error) {
-	idle, _, err := newImageFromFile("resources/menu/ui/slider-track-idle.png")
+	idle, _, err := loader.NewImageFromFile("resources/menu/ui/slider-track-idle.png")
 	if err != nil {
 		return nil, err
 	}
 
-	disabled, _, err := newImageFromFile("resources/menu/ui/slider-track-disabled.png")
+	disabled, _, err := loader.NewImageFromFile("resources/menu/ui/slider-track-disabled.png")
 	if err != nil {
 		return nil, err
 	}
 
-	handleIdle, _, err := newImageFromFile("resources/menu/ui/slider-handle-idle.png")
+	handleIdle, _, err := loader.NewImageFromFile("resources/menu/ui/slider-handle-idle.png")
 	if err != nil {
 		return nil, err
 	}
 
-	handleHover, _, err := newImageFromFile("resources/menu/ui/slider-handle-hover.png")
+	handleHover, _, err := loader.NewImageFromFile("resources/menu/ui/slider-handle-hover.png")
 	if err != nil {
 		return nil, err
 	}
 
-	handleDisabled, _, err := newImageFromFile("resources/menu/ui/slider-handle-disabled.png")
+	handleDisabled, _, err := loader.NewImageFromFile("resources/menu/ui/slider-handle-disabled.png")
 	if err != nil {
 		return nil, err
 	}
@@ -638,15 +639,15 @@ func newSliderResources() (*sliderResources, error) {
 }
 
 func newProgressBarResources() (*progressBarResources, error) {
-	idle, _, err := newImageFromFile("resources/menu/ui/progressbar-track-idle.png")
+	idle, _, err := loader.NewImageFromFile("resources/menu/ui/progressbar-track-idle.png")
 	if err != nil {
 		return nil, err
 	}
-	fill_idle, _, err := newImageFromFile("resources/menu/ui/progressbar-fill-idle.png")
+	fill_idle, _, err := loader.NewImageFromFile("resources/menu/ui/progressbar-fill-idle.png")
 	if err != nil {
 		return nil, err
 	}
-	disabled, _, err := newImageFromFile("resources/menu/ui/slider-track-disabled.png")
+	disabled, _, err := loader.NewImageFromFile("resources/menu/ui/slider-track-disabled.png")
 	if err != nil {
 		return nil, err
 	}
@@ -725,12 +726,12 @@ func newHeaderResources(fonts *fonts) (*headerResources, error) {
 }
 
 func newTextInputResources(fonts *fonts) (*textInputResources, error) {
-	idle, _, err := newImageFromFile("resources/menu/ui/text-input-idle.png")
+	idle, _, err := loader.NewImageFromFile("resources/menu/ui/text-input-idle.png")
 	if err != nil {
 		return nil, err
 	}
 
-	disabled, _, err := newImageFromFile("resources/menu/ui/text-input-disabled.png")
+	disabled, _, err := loader.NewImageFromFile("resources/menu/ui/text-input-disabled.png")
 	if err != nil {
 		return nil, err
 	}
@@ -760,37 +761,37 @@ func newTextInputResources(fonts *fonts) (*textInputResources, error) {
 }
 
 func newTextAreaResources(fonts *fonts) (*textAreaResources, error) {
-	idle, _, err := newImageFromFile("resources/menu/ui/list-idle.png")
+	idle, _, err := loader.NewImageFromFile("resources/menu/ui/list-idle.png")
 	if err != nil {
 		return nil, err
 	}
 
-	disabled, _, err := newImageFromFile("resources/menu/ui/list-disabled.png")
+	disabled, _, err := loader.NewImageFromFile("resources/menu/ui/list-disabled.png")
 	if err != nil {
 		return nil, err
 	}
 
-	mask, _, err := newImageFromFile("resources/menu/ui/list-mask.png")
+	mask, _, err := loader.NewImageFromFile("resources/menu/ui/list-mask.png")
 	if err != nil {
 		return nil, err
 	}
 
-	trackIdle, _, err := newImageFromFile("resources/menu/ui/list-track-idle.png")
+	trackIdle, _, err := loader.NewImageFromFile("resources/menu/ui/list-track-idle.png")
 	if err != nil {
 		return nil, err
 	}
 
-	trackDisabled, _, err := newImageFromFile("resources/menu/ui/list-track-disabled.png")
+	trackDisabled, _, err := loader.NewImageFromFile("resources/menu/ui/list-track-disabled.png")
 	if err != nil {
 		return nil, err
 	}
 
-	handleIdle, _, err := newImageFromFile("resources/menu/ui/slider-handle-idle.png")
+	handleIdle, _, err := loader.NewImageFromFile("resources/menu/ui/slider-handle-idle.png")
 	if err != nil {
 		return nil, err
 	}
 
-	handleHover, _, err := newImageFromFile("resources/menu/ui/slider-handle-hover.png")
+	handleHover, _, err := loader.NewImageFromFile("resources/menu/ui/slider-handle-hover.png")
 	if err != nil {
 		return nil, err
 	}
@@ -833,7 +834,7 @@ func newTextAreaResources(fonts *fonts) (*textAreaResources, error) {
 }
 
 func newToolTipResources(fonts *fonts) (*toolTipResources, error) {
-	bg, _, err := newImageFromFile("resources/menu/ui/tool-tip.png")
+	bg, _, err := loader.NewImageFromFile("resources/menu/ui/tool-tip.png")
 	if err != nil {
 		return nil, err
 	}

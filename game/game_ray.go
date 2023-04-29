@@ -256,7 +256,8 @@ func (g *Game) updateProjectiles() {
 						println("ouch!")
 					} else {
 						// show crosshair hit effect
-						g.crosshairs.ActivateHitIndicator(30)
+						// Todo
+						// g.crosshairs.ActivateHitIndicator(30)
 					}
 				}
 			} else {

@@ -1,6 +1,7 @@
 package game
 
 import (
+	"embed"
 	"fmt"
 	"image/color"
 	"lintech/rego/iregoter"
@@ -12,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"lintech/rego/game/loader"
 	"lintech/rego/game/model"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -21,11 +23,10 @@ import (
 	"github.com/spf13/viper"
 )
 
-const (
-	//--RaycastEngine constants
-	//--set constant, texture size to be the wall (and sprite) texture size--//
-	texWidth = 256
+//go:embed resources
+var embedded embed.FS
 
+const (
 	// distance to keep away from walls and obstacles to avoid clipping
 	// TODO: may want a smaller distance to test vs. sprites
 	clipDistance = 0.1
@@ -75,7 +76,7 @@ type Game struct {
 	mouseMode      MouseMode
 	mouseX, mouseY int
 
-	crosshairs *model.Crosshairs
+	crosshairs *regoter.Regoter[*model.Crosshairs]
 
 	// zoom settings
 	zoomFovDepth float64
@@ -234,25 +235,6 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		screen.DrawImage(mmImg, op)
 	}
 
-	// draw crosshairs
-	if g.crosshairs != nil {
-		op := &ebiten.DrawImageOptions{}
-		op.Filter = ebiten.FilterNearest
-
-		crosshairScale := g.crosshairs.Scale()
-		op.GeoM.Scale(crosshairScale, crosshairScale)
-		op.GeoM.Translate(
-			float64(g.screenWidth)/2-float64(g.crosshairs.W)*crosshairScale/2,
-			float64(g.screenHeight)/2-float64(g.crosshairs.H)*crosshairScale/2,
-		)
-		screen.DrawImage(g.crosshairs.Texture(), op)
-
-		if g.crosshairs.IsHitIndicatorActive() {
-			screen.DrawImage(g.crosshairs.HitIndicator.Texture(), op)
-			g.crosshairs.Update()
-		}
-	}
-
 	// draw menu (if active)
 	g.menu.draw(screen)
 
@@ -275,7 +257,7 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 // and initialize them as well.
 func NewGame() *Game {
 	fmt.Printf("Initializing Game\n")
-	ebiten.SetWindowTitle("Raycaster-Go Demo")
+	ebiten.SetWindowTitle("Rego Demo")
 
 	rand.Seed(time.Now().UnixNano())
 
@@ -285,9 +267,9 @@ func NewGame() *Game {
 	g.txToCore = txToCore
 	g.rxFromCore = rxFromCore
 
-	for i := 0; i < 10; i++ {
-		regoter.NewSpiteWalker(txToCore)
-	}
+	// for i := 0; i < 10; i++ {
+	// 	regoter.NewSpiteWalker(txToCore)
+	// }
 
 	g.initConfig()
 
@@ -312,11 +294,12 @@ func NewGame() *Game {
 	g.mapWidth = len(worldMap)
 	g.mapHeight = len(worldMap[0])
 
+	// Todo
 	// load content once when first run
-	g.loadContent()
+	// g.loadContent()
 
 	// create crosshairs and weapon
-	g.crosshairs = model.NewCrosshairs(1, 1, 2.0, g.tex.textures[16], 8, 8, 55, 57)
+	g.crosshairs = model.NewCrosshairs(txToCore)
 
 	// init player model
 	angleDegrees := 60.0
@@ -324,8 +307,9 @@ func NewGame() *Game {
 	g.player.CollisionRadius = clipDistance
 	g.player.CollisionHeight = 0.5
 
+	// Todo
 	// init the sprites
-	g.loadSprites()
+	// g.loadSprites()
 
 	if g.osType == osTypeBrowser {
 		// web browser cannot start with cursor captured
@@ -338,11 +322,11 @@ func NewGame() *Game {
 	g.mouseX, g.mouseY = math.MinInt32, math.MinInt32
 
 	//--init camera and renderer--//
-	g.camera = raycaster.NewCamera(g.width, g.height, texWidth, g.mapObj, g.tex)
+	g.camera = raycaster.NewCamera(g.width, g.height, loader.TexWidth, g.mapObj, g.tex)
 	g.setRenderDistance(g.renderDistance)
 
-	g.camera.SetFloorTexture(getTextureFromFile("floor.png"))
-	g.camera.SetSkyTexture(getTextureFromFile("sky.png"))
+	g.camera.SetFloorTexture(loader.GetTextureFromFile("floor.png"))
+	g.camera.SetSkyTexture(loader.GetTextureFromFile("sky.png"))
 
 	// initialize camera to player position
 	g.updatePlayerCamera(true)

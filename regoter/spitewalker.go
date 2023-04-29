@@ -32,9 +32,10 @@ func RandomPosition(xlimit int, ylimit int) iregoter.RgPosition {
 	return iregoter.RgPosition{X: x, Y: y}
 }
 
-func (s *SpiteWalker) Update() iregoter.RegoterUpdatedInfo {
+func (s *SpiteWalker) Update(sz iregoter.Vision, c iregoter.ChanRegoterUpdate) {
 	changed := false
 	s.count += 1
+	var op *ebiten.DrawImageOptions = nil
 	if s.count%5 == 0 {
 		changed = true
 		s.position.X += rand.Intn(5)
@@ -46,10 +47,15 @@ func (s *SpiteWalker) Update() iregoter.RegoterUpdatedInfo {
 		}
 		i := (s.count / 5)
 		s.currImg = GetSubImage(s.fullimg, i)
+		op := &ebiten.DrawImageOptions{}
+		op.Filter = ebiten.FilterNearest
+		op.GeoM.Translate(float64(s.position.X), float64(s.position.Y))
 	}
-	info := iregoter.RegoterUpdatedInfo{Position: s.position, Img: s.currImg,
+
+	info := iregoter.RegoterUpdatedInfo{ImgOp: op, Img: s.currImg,
 		Visiable: true, Deleted: false, Changed: changed}
-	return info
+	c <- info
+	close(c)
 }
 
 func NewSpiteWalker(coreMsgbox chan<- iregoter.IRegoterEvent) *Regoter[*SpiteWalker] {

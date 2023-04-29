@@ -20,7 +20,7 @@ type rgRxMsgbox <-chan iregoter.ICoreEvent
 type rgTxMsgbox chan<- iregoter.IRegoterEvent
 
 type IThing interface {
-	Update() iregoter.RegoterUpdatedInfo
+	Update(sz iregoter.Vision, c iregoter.ChanRegoterUpdate)
 }
 
 type Regoter[T IThing] struct {
@@ -64,15 +64,14 @@ func (r *Regoter[T]) process(e iregoter.ICoreEvent) error {
 // Update the position and status of Regoter
 // And send new Position and status to IGame
 func (r *Regoter[T]) eventHandleUpdate(e iregoter.CoreEventTick) error {
-	info := r.thing.Update()
-	if info.Changed {
-		u := iregoter.RegoterEventUpdated{RgId: r.id, Info: info}
-		r.txChan <- u
+	c := make(chan iregoter.RegoterUpdatedInfo)
+	go r.thing.Update(e.Vision, c)
+	for info := range c {
+		if info.Visiable {
+			u := iregoter.RegoterEventUpdated{RgId: r.id, Info: info}
+			r.txChan <- u
+		}
 	}
-	// FOR DEBUG: Test concurrent
-	// if idg.currentId() < 10000 {
-	// 	Create(r.txChan, r.position)
-	// }
 	return nil
 }
 
@@ -103,8 +102,7 @@ func NewRegoter[T IThing](coreMsgbox chan<- iregoter.IRegoterEvent, t T) *Regote
 	c := make(chan iregoter.ICoreEvent, 10)
 	r := &Regoter[T]{id, c, coreMsgbox, t}
 	go func() {
-		info := r.thing.Update()
-		e := iregoter.RegoterEventNewRegoter{RgId: r.id, Msgbox: c, Info: info}
+		e := iregoter.RegoterEventNewRegoter{RgId: r.id, Msgbox: c}
 		r.txChan <- e
 		r.Run()
 	}()

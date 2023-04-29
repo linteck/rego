@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/chen3feng/stl4go"
-	"github.com/hajimehoshi/ebiten/v2"
 )
 
 var logger = log.New(os.Stdout, "Core ", 0)
@@ -17,14 +16,19 @@ type coreRxMsgbox <-chan iregoter.IRegoterEvent
 type coreTxMsgbox chan<- iregoter.ICoreEvent
 
 type regoterInCore struct {
-	tx          coreTxMsgbox
-	updatedInfo iregoter.RegoterUpdatedInfo
+	tx coreTxMsgbox
 }
+
+var imgLayerPriorities = [...]iregoter.ImgLayer{
+	iregoter.ImgLayerSprite,
+	iregoter.ImgLayerSpriteHint,
+	iregoter.ImgLayerProjectile}
 
 type Core struct {
 	rxBox    coreRxMsgbox
 	txToGame chan<- iregoter.ICoreEvent
 	rgs      *stl4go.SkipList[iregoter.ID, regoterInCore]
+	imgs     [len(imgLayerPriorities)]*stl4go.DList[iregoter.RegoterUpdatedInfo]
 }
 
 func (g *Core) eventHandleGameEventTick(e iregoter.GameEventTick) {
@@ -32,11 +36,12 @@ func (g *Core) eventHandleGameEventTick(e iregoter.GameEventTick) {
 }
 
 func (g *Core) eventHandleNewRegoter(e iregoter.RegoterEventNewRegoter) {
-	g.rgs.Insert(e.RgId, regoterInCore{e.Msgbox, e.Info})
+	g.rgs.Insert(e.RgId, regoterInCore{e.Msgbox})
 }
 
 func (g *Core) eventHandleUpdated(e iregoter.RegoterEventUpdated) {
-	g.rgs.Find(e.RgId).updatedInfo = e.Info
+	l := g.imgs[e.Info.ImgLayer]
+	l.PushBack(e.Info)
 }
 
 func (g *Core) eventHandleRegoterDeleted(e iregoter.RegoterEventRegoterDeleted) {
@@ -46,6 +51,19 @@ func (g *Core) eventHandleRegoterDeleted(e iregoter.RegoterEventRegoterDeleted) 
 func (r *Core) eventHandleUnknown(e iregoter.IRegoterEvent) error {
 	logger.Fatal(fmt.Sprintf("Unknown event: %T", e))
 	return nil
+}
+
+func (g *Core) eventHandleGameEventDraw(e iregoter.GameEventDraw) {
+
+	for p := range imgLayerPriorities {
+		g.imgs[p].ForEach(func(v iregoter.RegoterUpdatedInfo) {
+			e.Screen.DrawImage(v.Img, v.ImgOp)
+		})
+		g.imgs[p].Clear()
+	}
+	r := iregoter.CoreEventDrawDone{}
+	g.txToGame <- r
+
 }
 
 func (g *Core) process(e iregoter.IRegoterEvent) error {
@@ -95,31 +113,15 @@ func (g *Core) Run() {
 	}
 }
 
-func (g *Core) eventHandleGameEventDraw(e iregoter.GameEventDraw) {
-
-	op := &ebiten.DrawImageOptions{}
-	// op.GeoM.Translate(-float64(frameWidth)/2, -float64(frameHeight)/2)
-	// op.GeoM.Translate(screenWidth/2, screenHeight/2)
-	g.rgs.ForEach(func(k iregoter.ID, v regoterInCore) {
-		//logger.Print("Position(", v.position.X, ", ", v.position.Y, ")")
-		//op.GeoM.Apply(float64(v.position.X), float64(v.position.Y))
-		op.GeoM.Reset()
-		p := v.updatedInfo.Position
-		op.GeoM.Translate(float64(p.X), float64(p.Y))
-
-		//op.GeoM.Translate(screenWidth/2, screenHeight/2)
-		e.Screen.DrawImage(v.updatedInfo.Img, op)
-	})
-	r := iregoter.CoreEventDrawDone{}
-	g.txToGame <- r
-
-}
-
 func NewCore() (chan<- iregoter.IRegoterEvent, <-chan iregoter.ICoreEvent) {
 	c := make(chan iregoter.IRegoterEvent)
 	g := make(chan iregoter.ICoreEvent)
 	rs := stl4go.NewSkipList[iregoter.ID, regoterInCore]()
-	core := &Core{c, g, rs}
+	var imgs [len(imgLayerPriorities)]*stl4go.DList[iregoter.RegoterUpdatedInfo]
+	for i := 0; i < len(imgs); i++ {
+		imgs[i] = stl4go.NewDList[iregoter.RegoterUpdatedInfo]()
+	}
+	core := &Core{c, g, rs, imgs}
 	go core.Run()
 	return c, g
 }
