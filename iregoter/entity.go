@@ -1,4 +1,4 @@
-package model
+package iregoter
 
 import (
 	"image/color"
@@ -12,8 +12,8 @@ type Entity struct {
 	PositionZ       float64
 	Scale           float64
 	Anchor          raycaster.SpriteAnchor
-	Angle           float64
-	Pitch           float64
+	Angle           RotateAngle
+	Pitch           PitchAngle
 	Velocity        float64
 	CollisionRadius float64
 	CollisionHeight float64

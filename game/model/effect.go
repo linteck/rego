@@ -2,13 +2,14 @@ package model
 
 import (
 	"image/color"
+	"lintech/rego/iregoter"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/harbdog/raycaster-go"
 )
 
 type Effect struct {
-	*Sprite
+	*iregoter.Sprite
 	LoopCount int
 }
 
@@ -17,7 +18,7 @@ func NewAnimatedEffect(
 ) *Effect {
 	mapColor := color.RGBA{0, 0, 0, 0}
 	e := &Effect{
-		Sprite:    NewAnimatedSprite(x, y, scale, animationRate, img, mapColor, columns, rows, anchor, 0, 0),
+		Sprite:    iregoter.NewAnimatedSprite(x, y, scale, animationRate, img, mapColor, columns, rows, anchor, 0, 0),
 		LoopCount: loopCount,
 	}
 
@@ -25,7 +26,25 @@ func NewAnimatedEffect(
 	e.Sprite.Focusable = false
 
 	// effects self illuminate so they do not get dimmed in dark conditions
-	e.illumination = 5000
+	e.Sprite.SetIllumination(5000)
+
+	return e
+}
+
+func NewEffect(x float64, y float64, z float64, angle iregoter.RotateAngle, pitch iregoter.PitchAngle) *Effect {
+	e := &Effect{}
+	// s := &iregoter.Sprite{}
+	// copier.Copy(e, p.ImpactEffect)
+	// copier.Copy(s, p.ImpactEffect.Sprite)
+
+	// e.Sprite = s
+	// e.Position = &geom.Vector2{X: x, Y: y}
+	// e.PositionZ = z
+	// e.Angle = angle
+	// e.Pitch = pitch
+
+	// // keep track of what spawned it
+	// e.Parent = p.Parent
 
 	return e
 }

@@ -2,16 +2,15 @@ package model
 
 import (
 	"image/color"
+	"lintech/rego/iregoter"
 
 	"github.com/harbdog/raycaster-go"
-	"github.com/harbdog/raycaster-go/geom"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/jinzhu/copier"
 )
 
 type Weapon struct {
-	*Sprite
+	*iregoter.Sprite
 	firing             bool
 	cooldown           int
 	rateOfFire         float64
@@ -24,7 +23,7 @@ func NewAnimatedWeapon(
 ) *Weapon {
 	mapColor := color.RGBA{0, 0, 0, 0}
 	w := &Weapon{
-		Sprite: NewAnimatedSprite(x, y, scale, animationRate, img, mapColor, columns, rows, raycaster.AnchorCenter, 0, 0),
+		Sprite: iregoter.NewAnimatedSprite(x, y, scale, animationRate, img, mapColor, columns, rows, raycaster.AnchorCenter, 0, 0),
 	}
 	w.projectile = projectile
 	w.projectileVelocity = projectileVelocity
@@ -46,27 +45,6 @@ func (w *Weapon) Fire() bool {
 		return true
 	}
 	return false
-}
-
-func (w *Weapon) SpawnProjectile(x, y, z, angle, pitch float64, spawnedBy *Entity) *Projectile {
-	p := &Projectile{}
-	s := &Sprite{}
-	copier.Copy(p, w.projectile)
-	copier.Copy(s, w.projectile.Sprite)
-
-	p.Sprite = s
-	p.Position = &geom.Vector2{X: x, Y: y}
-	p.PositionZ = z
-	p.Angle = angle
-	p.Pitch = pitch
-
-	// convert velocity from distance/second to distance per tick
-	p.Velocity = w.projectileVelocity / float64(ebiten.TPS())
-
-	// keep track of what spawned it
-	p.Parent = spawnedBy
-
-	return p
 }
 
 func (w *Weapon) OnCooldown() bool {

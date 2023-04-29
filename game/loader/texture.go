@@ -1,25 +1,23 @@
-package game
+package loader
 
 import (
 	"image"
-
-	"lintech/rego/game/model"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
 type TextureHandler struct {
-	mapObj         *model.Map
+	mapObj         *Map
 	textures       []*ebiten.Image
 	floorTex       *image.RGBA
-	renderFloorTex bool
+	RenderFloorTex bool
 }
 
-func NewTextureHandler(mapObj *model.Map, textureCapacity int) *TextureHandler {
+func NewTextureHandler(mapObj *Map, textureCapacity int) *TextureHandler {
 	t := &TextureHandler{
 		mapObj:         mapObj,
 		textures:       make([]*ebiten.Image, textureCapacity),
-		renderFloorTex: true,
+		RenderFloorTex: true,
 	}
 	return t
 }
@@ -75,7 +73,7 @@ func (t *TextureHandler) TextureAt(x, y, levelNum, side int) *ebiten.Image {
 func (t *TextureHandler) FloorTextureAt(x, y int) *image.RGBA {
 	// x/y could be used to render different floor texture at given coords,
 	// but for this demo we will just be rendering the same texture everywhere.
-	if t.renderFloorTex {
+	if t.RenderFloorTex {
 		return t.floorTex
 	}
 	return nil

@@ -25,43 +25,39 @@ const (
 
 // loadContent will be called once per game and is the place to load
 // all of your content.
-// func (g *Game) loadContent() {
+func LoadContent() *TextureHandler {
 
-// 	// TODO: make resource management better
+	// TODO: make resource management better
+	tex := TextureHandler{}
+	// load wall textures
+	tex.Textures[0] = GetTextureFromFile("stone.png")
+	tex.Textures[1] = GetTextureFromFile("left_bot_house.png")
+	tex.Textures[2] = GetTextureFromFile("right_bot_house.png")
+	tex.Textures[3] = GetTextureFromFile("left_top_house.png")
+	tex.Textures[4] = GetTextureFromFile("right_top_house.png")
+	tex.Textures[5] = GetTextureFromFile("ebitengine_splash.png")
 
-// 	// load wall textures
-// 	g.tex.textures[0] = getTextureFromFile("stone.png")
-// 	g.tex.textures[1] = getTextureFromFile("left_bot_house.png")
-// 	g.tex.textures[2] = getTextureFromFile("right_bot_house.png")
-// 	g.tex.textures[3] = getTextureFromFile("left_top_house.png")
-// 	g.tex.textures[4] = getTextureFromFile("right_top_house.png")
-// 	g.tex.textures[5] = getTextureFromFile("ebitengine_splash.png")
+	// separating sprites out a bit from wall textures
+	tex.Textures[8] = GetSpriteFromFile("large_rock.png")
+	tex.Textures[9] = GetSpriteFromFile("tree_09.png")
+	tex.Textures[10] = GetSpriteFromFile("tree_10.png")
+	tex.Textures[14] = GetSpriteFromFile("tree_14.png")
 
-// 	// separating sprites out a bit from wall textures
-// 	g.tex.textures[8] = getSpriteFromFile("large_rock.png")
-// 	g.tex.textures[9] = getSpriteFromFile("tree_09.png")
-// 	g.tex.textures[10] = getSpriteFromFile("tree_10.png")
-// 	g.tex.textures[14] = getSpriteFromFile("tree_14.png")
+	// load texture sheets
+	tex.Textures[15] = GetSpriteFromFile("sorcerer_sheet.png")
+	tex.Textures[16] = GetSpriteFromFile("crosshairs_sheet.png")
+	tex.Textures[17] = GetSpriteFromFile("charged_bolt_sheet.png")
+	tex.Textures[18] = GetSpriteFromFile("blue_explosion_sheet.png")
+	tex.Textures[19] = GetSpriteFromFile("outleader_walking_sheet.png")
+	tex.Textures[20] = GetSpriteFromFile("hand_spell.png")
+	tex.Textures[21] = GetSpriteFromFile("hand_staff.png")
+	tex.Textures[22] = GetSpriteFromFile("red_bolt.png")
+	tex.Textures[23] = GetSpriteFromFile("red_explosion_sheet.png")
+	tex.Textures[24] = GetSpriteFromFile("bat_sheet.png")
 
-// 	// load texture sheets
-// 	g.tex.textures[15] = getSpriteFromFile("sorcerer_sheet.png")
-// 	//g.tex.textures[16] = getSpriteFromFile("crosshairs_sheet.png")
-// 	g.tex.textures[17] = getSpriteFromFile("charged_bolt_sheet.png")
-// 	g.tex.textures[18] = getSpriteFromFile("blue_explosion_sheet.png")
-// 	g.tex.textures[19] = getSpriteFromFile("outleader_walking_sheet.png")
-// 	g.tex.textures[20] = getSpriteFromFile("hand_spell.png")
-// 	g.tex.textures[21] = getSpriteFromFile("hand_staff.png")
-// 	g.tex.textures[22] = getSpriteFromFile("red_bolt.png")
-// 	g.tex.textures[23] = getSpriteFromFile("red_explosion_sheet.png")
-// 	g.tex.textures[24] = getSpriteFromFile("bat_sheet.png")
-
-// 	// just setting the grass texture apart from the rest since it gets special handling
-// 	if g.debug {
-// 		g.tex.floorTex = getRGBAFromFile("grass_debug.png")
-// 	} else {
-// 		g.tex.floorTex = getRGBAFromFile("grass.png")
-// 	}
-// }
+	// just setting the grass texture apart from the rest since it gets special handling
+	return &tex
+}
 
 func NewImageFromFile(path string) (*ebiten.Image, image.Image, error) {
 	f, err := embedded.Open(filepath.ToSlash(path))
@@ -73,7 +69,7 @@ func NewImageFromFile(path string) (*ebiten.Image, image.Image, error) {
 	return eb, im, err
 }
 
-func getRGBAFromFile(texFile string) *image.RGBA {
+func GetRGBAFromFile(texFile string) *image.RGBA {
 	var rgba *image.RGBA
 	_, tex, err := NewImageFromFile("resources/textures/" + texFile)
 	if err != nil {
@@ -113,7 +109,7 @@ func GetSpriteFromFile(sFile string) *ebiten.Image {
 // func (g *Game) loadSprites() {
 // 	g.projectiles = make(map[*model.Projectile]struct{}, 1024)
 // 	g.effects = make(map[*model.Effect]struct{}, 1024)
-// 	g.sprites = make(map[*model.Sprite]struct{}, 128)
+// 	g.sprites = make(map[*iregoter.Sprite]struct{}, 128)
 
 // 	// colors for minimap representation
 // 	blueish := color.RGBA{62, 62, 100, 96}
@@ -327,21 +323,13 @@ func GetSpriteFromFile(sFile string) *ebiten.Image {
 // 	g.addSprite(model.NewSprite(13.5, 8, 1.0, g.tex.textures[14], orange, raycaster.AnchorBottom, 0, 0))
 // }
 
-// func (g *Game) addSprite(sprite *model.Sprite) {
+// func (g *Game) addSprite(sprite *iregoter.Sprite) {
 // 	g.sprites[sprite] = struct{}{}
 // }
 
-// // func (g *Game) deleteSprite(sprite *model.Sprite) {
+// // func (g *Game) deleteSprite(sprite *iregoter.Sprite) {
 // // 	delete(g.sprites, sprite)
 // // }
-
-// func (g *Game) addProjectile(projectile *model.Projectile) {
-// 	g.projectiles[projectile] = struct{}{}
-// }
-
-// func (g *Game) deleteProjectile(projectile *model.Projectile) {
-// 	delete(g.projectiles, projectile)
-// }
 
 // func (g *Game) addEffect(effect *model.Effect) {
 // 	g.effects[effect] = struct{}{}

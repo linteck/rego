@@ -16,7 +16,7 @@ type resourceCrosshairs struct {
 }
 
 type Crosshairs struct {
-	*Sprite
+	*iregoter.Sprite
 	hitTimer     int
 	HitIndicator *Crosshairs
 }
@@ -37,7 +37,7 @@ func loadCrosshairsResource() *resourceCrosshairs {
 	return crosshairsResource
 }
 
-//g.tex.textures[16] = getSpriteFromFile("crosshairs_sheet.png")
+//g.tex.textures[16] = GetSpriteFromFile("crosshairs_sheet.png")
 
 func NewCrosshairs(coreMsgbox chan<- iregoter.IRegoterEvent) *regoter.Regoter[*Crosshairs] {
 	loadCrosshairsResource()
@@ -45,7 +45,7 @@ func NewCrosshairs(coreMsgbox chan<- iregoter.IRegoterEvent) *regoter.Regoter[*C
 
 	mapColor := color.RGBA{0, 0, 0, 0}
 	t := &Crosshairs{
-		Sprite: NewSpriteFromSheet(s.x, s.y, s.scale, s.img, mapColor, s.columns, s.rows, s.crosshairIndex, raycaster.AnchorCenter, 0, 0),
+		Sprite: iregoter.NewSpriteFromSheet(s.x, s.y, s.scale, s.img, mapColor, s.columns, s.rows, s.crosshairIndex, raycaster.AnchorCenter, 0, 0),
 	}
 
 	hitIndicator := &Crosshairs{}
@@ -67,7 +67,9 @@ func (c *Crosshairs) IsHitIndicatorActive() bool {
 	return c.HitIndicator != nil && c.hitTimer > 0
 }
 
-func (c *Crosshairs) Update(v iregoter.Vision, cu iregoter.ChanRegoterUpdate) {
+func (c *Crosshairs) Update(cu iregoter.ChanRegoterUpdate, rgEntity *iregoter.Entity,
+	playEntiry *iregoter.Entity, HasCollision bool, screenSize iregoter.ScreenSize) {
+
 	if c.HitIndicator != nil && c.hitTimer > 0 {
 		// TODO: prefer to use timer rather than frame update counter?
 		c.hitTimer -= 1
@@ -80,13 +82,12 @@ func (c *Crosshairs) Update(v iregoter.Vision, cu iregoter.ChanRegoterUpdate) {
 	crosshairScale := c.Sprite.Scale()
 	op.GeoM.Scale(crosshairScale, crosshairScale)
 	op.GeoM.Translate(
-		float64(v.ScreenSize.Width)/2-float64(s.W)*crosshairScale/2,
-		float64(v.ScreenSize.Height)/2-float64(s.H)*crosshairScale/2,
+		float64(screenSize.Width)/2-float64(s.W)*crosshairScale/2,
+		float64(screenSize.Height)/2-float64(s.H)*crosshairScale/2,
 	)
-	img := s.Texture()
 
 	changed := true
-	info := iregoter.RegoterUpdatedInfo{ImgOp: op, Img: img,
+	info := iregoter.RegoterUpdatedImg{ImgOp: op, Sprite: s,
 		Visiable: true, Deleted: false, Changed: changed}
 	cu <- info
 

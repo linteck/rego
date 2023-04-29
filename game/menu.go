@@ -2,8 +2,8 @@ package game
 
 import (
 	"fmt"
+	"lintech/rego/iregoter"
 	"log"
-	"math"
 	"os"
 
 	"github.com/ebitenui/ebitenui"
@@ -12,11 +12,12 @@ import (
 )
 
 type DemoMenu struct {
-	active bool
-	ui     *ebitenui.UI
-	root   *widget.Container
-	res    *uiResources
-	game   *Game
+	active    bool
+	ui        *ebitenui.UI
+	root      *widget.Container
+	res       *uiResources
+	mouseInfo *iregoter.MouseInfo
+	game      *Game
 
 	resolutions []MenuResolution
 
@@ -56,6 +57,7 @@ func createMenu(g *Game) *DemoMenu {
 
 	menu := &DemoMenu{
 		game:        g,
+		mouseInfo:   g.mouseInfo,
 		ui:          ui,
 		res:         res,
 		active:      false,
@@ -140,26 +142,29 @@ func (g *Game) generateMenuResolutions() []MenuResolution {
 func (g *Game) openMenu() {
 	g.paused = true
 	g.menu.active = true
-	g.mouseMode = MouseModeCursor
+	g.mouseInfo.MouseMode = iregoter.MouseModeCursor
 	ebiten.SetCursorMode(ebiten.CursorModeVisible)
 
 	// for color menu items [1, 1, 1] represents NRGBA{255, 255, 255}
 	g.menu.newMinLightRGB = [3]float32{
-		float32(g.minLightRGB.R) * 1 / 255, float32(g.minLightRGB.G) * 1 / 255, float32(g.minLightRGB.B) * 1 / 255,
+		float32(g.cfg.MinLightRGB.R) * 1 / 255,
+		float32(g.cfg.MinLightRGB.G) * 1 / 255,
+		float32(g.cfg.MinLightRGB.B) * 1 / 255,
 	}
 	g.menu.newMaxLightRGB = [3]float32{
-		float32(g.maxLightRGB.R) * 1 / 255, float32(g.maxLightRGB.G) * 1 / 255, float32(g.maxLightRGB.B) * 1 / 255,
+		float32(g.cfg.MaxLightRGB.R) * 1 / 255,
+		float32(g.cfg.MaxLightRGB.G) * 1 / 255,
+		float32(g.cfg.MaxLightRGB.B) * 1 / 255,
 	}
 
 	g.menu.initMenu()
 }
 
 func (g *Game) closeMenu() {
-	g.mouseX, g.mouseY = math.MinInt32, math.MinInt32
 	ebiten.SetCursorMode(ebiten.CursorModeCaptured)
 	g.paused = false
 	g.menu.active = false
-	g.mouseMode = MouseModeLook
+	g.mouseInfo.MouseMode = iregoter.MouseModeLook
 }
 
 func (m *DemoMenu) layout(w, h int) {

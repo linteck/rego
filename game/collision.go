@@ -1,25 +1,27 @@
-package core
+package game
 
 import (
 	"math"
 	"sort"
 
 	"lintech/rego/game/loader"
-	"lintech/rego/game/model"
+	"lintech/rego/iregoter"
 
 	"github.com/harbdog/raycaster-go"
 	"github.com/harbdog/raycaster-go/geom"
 )
 
 type EntityCollision struct {
-	entity     *model.Entity
+	entity     *iregoter.Entity
 	collision  *geom.Vector2
 	collisionZ float64
 }
 
 // checks for valid move from current position, returns valid (x, y) position, whether a collision
 // was encountered, and a list of entity collisions that may have been encountered
-func (g *Game) getValidMove(entity *model.Entity, moveX, moveY, moveZ float64, checkAlternate bool) (*geom.Vector2, bool, []*EntityCollision) {
+func (g *Core) getValidMove(entity *iregoter.Entity,
+	moveX, moveY, moveZ float64, checkAlternate bool) (*geom.Vector2, bool, []*EntityCollision) {
+
 	posX, posY, posZ := entity.Position.X, entity.Position.Y, entity.PositionZ
 	if posX == moveX && posY == moveY && posZ == moveZ {
 		return &geom.Vector2{X: posX, Y: posY}, false, []*EntityCollision{}
@@ -40,26 +42,28 @@ func (g *Game) getValidMove(entity *model.Entity, moveX, moveY, moveZ float64, c
 	}
 
 	// check sprite against player collision
-	if entity != g.player.Entity && entity.Parent != g.player.Entity && entity.CollisionRadius > 0 {
+	player := g.rgs[iregoter.RegoterEnumPlayer].Iterate().Value()
+	if entity != player.entity && entity.Parent != player.entity && entity.CollisionRadius > 0 {
 		// TODO: only check for collision if player is somewhat nearby
 
 		// quick check if intersects in Z-plane
-		zIntersect := zEntityIntersection(newZ, entity, g.player.Entity)
+		zIntersect := zEntityIntersection(newZ, entity, player.entity)
 
 		// check if movement line intersects with combined collision radii
-		combinedCircle := geom.Circle{X: g.player.Position.X, Y: g.player.Position.Y, Radius: g.player.CollisionRadius + entity.CollisionRadius}
+		combinedCircle := geom.Circle{X: player.entity.Position.X, Y: player.entity.Position.Y,
+			Radius: player.entity.CollisionRadius + entity.CollisionRadius}
 		combinedIntersects := geom.LineCircleIntersection(moveLine, combinedCircle, true)
 
 		if zIntersect >= 0 && len(combinedIntersects) > 0 {
-			playerCircle := geom.Circle{X: g.player.Position.X, Y: g.player.Position.Y, Radius: g.player.CollisionRadius}
+			playerCircle := geom.Circle{X: player.entity.Position.X, Y: player.entity.Position.Y, Radius: player.entity.CollisionRadius}
 			for _, chkPoint := range combinedIntersects {
 				// intersections from combined circle radius indicate center point to check intersection toward sprite collision circle
-				chkLine := geom.Line{X1: chkPoint.X, Y1: chkPoint.Y, X2: g.player.Position.X, Y2: g.player.Position.Y}
+				chkLine := geom.Line{X1: chkPoint.X, Y1: chkPoint.Y, X2: player.entity.Position.X, Y2: player.entity.Position.Y}
 				intersectPoints = append(intersectPoints, geom.LineCircleIntersection(chkLine, playerCircle, true)...)
 
 				for _, intersect := range intersectPoints {
 					collisionEntities = append(
-						collisionEntities, &EntityCollision{entity: g.player.Entity, collision: &intersect, collisionZ: zIntersect},
+						collisionEntities, &EntityCollision{entity: player.entity, collision: &intersect, collisionZ: zIntersect},
 					)
 				}
 			}
@@ -67,34 +71,36 @@ func (g *Game) getValidMove(entity *model.Entity, moveX, moveY, moveZ float64, c
 	}
 
 	// check sprite collisions
-	for sprite := range g.sprites {
-		// TODO: only check intersection of nearby sprites instead of all of them
-		if entity == sprite.Entity || entity.Parent == sprite.Entity || entity.CollisionRadius <= 0 || sprite.CollisionRadius <= 0 {
-			continue
-		}
+	g.rgs[iregoter.RegoterEnumSprite].ForEach(
+		func(i iregoter.ID, sprite regoterInCore) {
+			// TODO: only check intersection of nearby sprites instead of all of them
+			if entity == sprite.entity || entity.Parent == sprite.entity || entity.CollisionRadius <= 0 || sprite.entity.CollisionRadius <= 0 {
+				return
+			}
 
-		// quick check if intersects in Z-plane
-		zIntersect := zEntityIntersection(newZ, entity, sprite.Entity)
+			// quick check if intersects in Z-plane
+			zIntersect := zEntityIntersection(newZ, entity, sprite.entity)
 
-		// check if movement line intersects with combined collision radii
-		combinedCircle := geom.Circle{X: sprite.Position.X, Y: sprite.Position.Y, Radius: sprite.CollisionRadius + entity.CollisionRadius}
-		combinedIntersects := geom.LineCircleIntersection(moveLine, combinedCircle, true)
+			// check if movement line intersects with combined collision radii
+			combinedCircle := geom.Circle{X: sprite.entity.Position.X, Y: sprite.entity.Position.Y,
+				Radius: sprite.entity.CollisionRadius + entity.CollisionRadius}
+			combinedIntersects := geom.LineCircleIntersection(moveLine, combinedCircle, true)
 
-		if zIntersect >= 0 && len(combinedIntersects) > 0 {
-			spriteCircle := geom.Circle{X: sprite.Position.X, Y: sprite.Position.Y, Radius: sprite.CollisionRadius}
-			for _, chkPoint := range combinedIntersects {
-				// intersections from combined circle radius indicate center point to check intersection toward sprite collision circle
-				chkLine := geom.Line{X1: chkPoint.X, Y1: chkPoint.Y, X2: sprite.Position.X, Y2: sprite.Position.Y}
-				intersectPoints = append(intersectPoints, geom.LineCircleIntersection(chkLine, spriteCircle, true)...)
+			if zIntersect >= 0 && len(combinedIntersects) > 0 {
+				spriteCircle := geom.Circle{X: sprite.entity.Position.X, Y: sprite.entity.Position.Y, Radius: sprite.entity.CollisionRadius}
+				for _, chkPoint := range combinedIntersects {
+					// intersections from combined circle radius indicate center point to check intersection toward sprite collision circle
+					chkLine := geom.Line{X1: chkPoint.X, Y1: chkPoint.Y, X2: sprite.entity.Position.X, Y2: sprite.entity.Position.Y}
+					intersectPoints = append(intersectPoints, geom.LineCircleIntersection(chkLine, spriteCircle, true)...)
 
-				for _, intersect := range intersectPoints {
-					collisionEntities = append(
-						collisionEntities, &EntityCollision{entity: sprite.Entity, collision: &intersect, collisionZ: zIntersect},
-					)
+					for _, intersect := range intersectPoints {
+						collisionEntities = append(
+							collisionEntities, &EntityCollision{entity: sprite.entity, collision: &intersect, collisionZ: zIntersect},
+						)
+					}
 				}
 			}
-		}
-	}
+		})
 
 	// sort collisions by distance to current entity position
 	sort.Slice(collisionEntities, func(i, j int) bool {
@@ -192,7 +198,7 @@ func (g *Game) getValidMove(entity *model.Entity, moveX, moveY, moveZ float64, c
 }
 
 // zEntityIntersection returns the best positionZ intersection point on the target from the source (-1 if no intersection)
-func zEntityIntersection(sourceZ float64, source, target *model.Entity) float64 {
+func zEntityIntersection(sourceZ float64, source, target *iregoter.Entity) float64 {
 	srcMinZ, srcMaxZ := zEntityMinMax(sourceZ, source)
 	tgtMinZ, tgtMaxZ := zEntityMinMax(target.PositionZ, target)
 
@@ -210,7 +216,7 @@ func zEntityIntersection(sourceZ float64, source, target *model.Entity) float64 
 }
 
 // zEntityMinMax calculates the minZ/maxZ used for basic collision checking in the Z-plane
-func zEntityMinMax(positionZ float64, entity *model.Entity) (float64, float64) {
+func zEntityMinMax(positionZ float64, entity *iregoter.Entity) (float64, float64) {
 	var minZ, maxZ float64
 	collisionHeight := entity.CollisionHeight
 

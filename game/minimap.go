@@ -5,10 +5,10 @@ import (
 	"image/color"
 	"sort"
 
-	"lintech/rego/game/model"
+	"lintech/rego/iregoter"
 )
 
-func (g *Game) miniMap() *image.RGBA {
+func (g *Core) miniMap() *image.RGBA {
 	m := image.NewRGBA(image.Rect(0, 0, g.mapWidth, g.mapHeight))
 
 	// wall/world positions
@@ -24,10 +24,11 @@ func (g *Game) miniMap() *image.RGBA {
 	}
 
 	// sprite positions, sort by color to avoid random color getting chosen as last when using map keys
-	sprites := make([]*model.Entity, 0, len(g.sprites))
-	for s := range g.sprites {
-		sprites = append(sprites, s.Entity)
-	}
+	sl := g.rgs[iregoter.RegoterEnumSprite]
+	sprites := make([]*iregoter.Entity, 0, sl.Len())
+	sl.ForEach(func(_ iregoter.ID, s regoterInCore) {
+		sprites = append(sprites, s.entity)
+	})
 	sort.Slice(sprites, func(i, j int) bool {
 		iComp := (sprites[i].MapColor.R + sprites[i].MapColor.G + sprites[i].MapColor.B)
 		jComp := (sprites[j].MapColor.R + sprites[j].MapColor.G + sprites[j].MapColor.B)
@@ -42,10 +43,11 @@ func (g *Game) miniMap() *image.RGBA {
 	}
 
 	// projectile positions
-	projectiles := make([]*model.Entity, 0, len(g.projectiles))
-	for p := range g.projectiles {
-		projectiles = append(projectiles, p.Entity)
-	}
+	pl := g.rgs[iregoter.RegoterEnumProjectile]
+	projectiles := make([]*iregoter.Entity, 0, pl.Len())
+	pl.ForEach(func(_ iregoter.ID, p regoterInCore) {
+		projectiles = append(projectiles, p.entity)
+	})
 	sort.Slice(projectiles, func(i, j int) bool {
 		iComp := (projectiles[i].MapColor.R + projectiles[i].MapColor.G + projectiles[i].MapColor.B)
 		jComp := (projectiles[j].MapColor.R + projectiles[j].MapColor.G + projectiles[j].MapColor.B)
@@ -60,12 +62,13 @@ func (g *Game) miniMap() *image.RGBA {
 	}
 
 	// player position
-	m.Set(int(g.player.Position.X), int(g.player.Position.Y), g.player.MapColor)
+	player := g.rgs[iregoter.RegoterEnumPlayer].Iterate().Value().entity
+	m.Set(int(player.Position.X), int(player.Position.Y), player.MapColor)
 
 	return m
 }
 
-func (g *Game) getMapColor(x, y int) color.RGBA {
+func (g *Core) getMapColor(x, y int) color.RGBA {
 	worldMap := g.mapObj.Level(0)
 	switch worldMap[x][y] {
 	case 0:

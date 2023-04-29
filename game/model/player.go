@@ -5,11 +5,9 @@ import (
 	"lintech/rego/game/loader"
 	"lintech/rego/iregoter"
 	"lintech/rego/regoter"
-	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/harbdog/raycaster-go/geom"
-	"github.com/harbdog/raycaster-go/geom3d"
 )
 
 type resourcePlayer struct {
@@ -27,25 +25,31 @@ func loadResource() *resourcePlayer {
 }
 
 type Player struct {
-	*Entity
+	*iregoter.Entity
 	CameraZ    float64
 	Moved      bool
 	Weapon     *Weapon
 	WeaponSet  []*Weapon
 	LastWeapon *Weapon
+
+	// Movement in this tick
+	cfg      *iregoter.GameCfg
+	movement *iregoter.RegoterMove
 }
 
 type playerSheet struct {
-	x, y, angle, pitch float64
+	x, y  float64
+	angle iregoter.RotateAngle
+	pitch iregoter.PitchAngle
 }
 
-func NewPlayer(coreMsgbox chan<- iregoter.IRegoterEvent) *regoter.Regoter[*Player] {
+func NewPlayer(coreMsgbox chan<- iregoter.IRegoterEvent, cfg *iregoter.GameCfg) *regoter.Regoter[*Player] {
 	// init player model
 	angleDegrees := 60.0
 
-	s := playerSheet{8.5, 3.5, geom.Radians(angleDegrees), 0}
+	s := playerSheet{8.5, 3.5, iregoter.RotateAngle(geom.Radians(angleDegrees)), 0}
 	p := &Player{
-		Entity: &Entity{
+		Entity: &iregoter.Entity{
 			Position:  &geom.Vector2{X: s.x, Y: s.y},
 			PositionZ: 0,
 			Angle:     s.angle,
@@ -56,10 +60,11 @@ func NewPlayer(coreMsgbox chan<- iregoter.IRegoterEvent) *regoter.Regoter[*Playe
 		CameraZ:   0.5,
 		Moved:     false,
 		WeaponSet: []*Weapon{},
+		cfg:       cfg,
 	}
 
-	p.CollisionRadius = loader.ClipDistance
-	p.CollisionHeight = 0.5
+	p.Entity.CollisionRadius = loader.ClipDistance
+	p.Entity.CollisionHeight = 0.5
 
 	r := regoter.NewRegoter(coreMsgbox, p)
 	return r
@@ -130,15 +135,22 @@ func (p *Player) getSelectedWeapon() (*Weapon, int) {
 	return p.Weapon, p.getWeaponIndex(p.Weapon)
 }
 
-func (c *Player) Update(v iregoter.Vision, cu iregoter.ChanRegoterUpdate) {
+func (p *Player) Update(cu iregoter.ChanRegoterUpdate, rgEntity *iregoter.Entity,
+	playentity *iregoter.Entity, HasCollision bool, screenSize iregoter.ScreenSize) {
+
 	// draw crosshairs
 	op := &ebiten.DrawImageOptions{}
 	op.Filter = ebiten.FilterNearest
 
-	changed := true
-	info := iregoter.RegoterUpdatedInfo{ImgOp: op, Img: img,
-		Visiable: true, Deleted: false, Changed: changed}
-	cu <- info
+	if rgEntity.Position != p.Position || rgEntity.Angle != p.Angle {
+		p.Moved = true
+	} else {
+		p.Moved = false
+	}
+
+	if info, ok := p.drawWeapon(screenSize); ok {
+		cu <- info
+	}
 
 	// Todo
 	// if c.IsHitIndicatorActive() {
@@ -150,111 +162,123 @@ func (c *Player) Update(v iregoter.Vision, cu iregoter.ChanRegoterUpdate) {
 }
 
 // Move player by move speed in the forward/backward direction
-func (g *Game) Move(mSpeed float64) {
-	moveLine := geom.LineFromAngle(g.player.Position.X, g.player.Position.Y, g.player.Angle, mSpeed)
-
-	newPos, _, _ := g.getValidMove(g.player.Entity, moveLine.X2, moveLine.Y2, g.player.PositionZ, true)
-	if !newPos.Equals(g.player.Pos()) {
-		g.player.Position = newPos
-		g.player.Moved = true
-	}
+func (p *Player) Move(mSpeed iregoter.Distance) {
+	p.movement.MoveSpeed = mSpeed
 }
 
 // Move player by strafe speed in the left/right direction
-func (g *Game) Strafe(sSpeed float64) {
-	strafeAngle := geom.HalfPi
+func (p *Player) Strafe(sSpeed iregoter.Distance) {
+	var strafeAngle iregoter.RotateAngle = geom.HalfPi
 	if sSpeed < 0 {
 		strafeAngle = -strafeAngle
 	}
-	strafeLine := geom.LineFromAngle(g.player.Position.X, g.player.Position.Y, g.player.Angle-strafeAngle, math.Abs(sSpeed))
-
-	newPos, _, _ := g.getValidMove(g.player.Entity, strafeLine.X2, strafeLine.Y2, g.player.PositionZ, true)
-	if !newPos.Equals(g.player.Pos()) {
-		g.player.Position = newPos
-		g.player.Moved = true
-	}
+	p.movement.RotateSpeed = strafeAngle
+	p.movement.MoveSpeed = sSpeed
 }
 
 // Rotate player heading angle by rotation speed
-func (g *Game) Rotate(rSpeed float64) {
-	g.player.Angle += rSpeed
-
-	pi2 := geom.Pi2
-	if g.player.Angle >= pi2 {
-		g.player.Angle = pi2 - g.player.Angle
-	} else if g.player.Angle <= -pi2 {
-		g.player.Angle = g.player.Angle + pi2
-	}
-
-	g.player.Moved = true
+func (p *Player) Rotate(rSpeed iregoter.RotateAngle) {
+	p.movement.RotateSpeed = rSpeed
 }
 
 // Update player pitch angle by pitch speed
-func (g *Game) Pitch(pSpeed float64) {
+func (p *Player) Pitch(pSpeed iregoter.PitchAngle) {
 	// current raycasting method can only allow up to 22.5 degrees down, 45 degrees up
-	g.player.Pitch = geom.Clamp(pSpeed+g.player.Pitch, -math.Pi/8, math.Pi/4)
-	g.player.Moved = true
+	p.movement.PitchSpeed = pSpeed
 }
 
-func (g *Game) Stand() {
-	g.player.CameraZ = 0.5
-	g.player.PositionZ = 0
-	g.player.Moved = true
+func (p *Player) Stand() {
+	p.CameraZ = 0.5
+	p.Entity.PositionZ = 0
 }
 
-func (g *Game) IsStanding() bool {
-	return g.player.PositionZ == 0 && g.player.CameraZ == 0.5
+func (p *Player) IsStanding() bool {
+	return p.Entity.PositionZ == 0 && p.CameraZ == 0.5
 }
 
-func (g *Game) Jump() {
-	g.player.CameraZ = 0.9
-	g.player.PositionZ = 0.4
-	g.player.Moved = true
+func (p *Player) Jump() {
+	p.CameraZ = 0.9
+	p.Entity.PositionZ = 0.4
+	p.Moved = true
 }
 
-func (g *Game) Crouch() {
-	g.player.CameraZ = 0.3
-	g.player.PositionZ = 0
-	g.player.Moved = true
+func (p *Player) Crouch() {
+	p.CameraZ = 0.3
+	p.Entity.PositionZ = 0
+	p.Moved = true
 }
 
-func (g *Game) Prone() {
-	g.player.CameraZ = 0.1
-	g.player.PositionZ = 0
-	g.player.Moved = true
+func (p *Player) Prone() {
+	p.CameraZ = 0.1
+	p.Entity.PositionZ = 0
+	p.Moved = true
 }
 
-func (g *Game) fireWeapon() {
-	w := g.player.Weapon
-	if w == nil {
-		g.player.NextWeapon(false)
-		return
-	}
-	if w.OnCooldown() {
-		return
-	}
+// Todo
+func (p *Player) fireWeapon() {}
 
-	// set weapon firing for animation to run
-	w.Fire()
+// func (p *Player) fireWeapon() {
+// 	w := p.Weapon
+// 	if w == nil {
+// 		p.NextWeapon(false)
+// 		return
+// 	}
+// 	if w.OnCooldown() {
+// 		return
+// 	}
 
-	// spawning projectile at player position just slightly below player's center point of view
-	pX, pY, pZ := g.player.Position.X, g.player.Position.Y, geom.Clamp(g.player.CameraZ-0.1, 0.05, 0.95)
-	// pitch, angle based on raycasted point at crosshairs
-	var pAngle, pPitch float64
-	convergenceDistance := g.camera.GetConvergenceDistance()
-	convergencePoint := g.camera.GetConvergencePoint()
-	if convergenceDistance <= 0 || convergencePoint == nil {
-		pAngle, pPitch = g.player.Angle, g.player.Pitch
+// 	// set weapon firing for animation to run
+// 	w.Fire()
+
+// 	// spawning projectile at player position just slightly below player's center point of view
+// 	pX, pY, pZ := p.Entity.Position.X, p.Entity.Position.Y, geom.Clamp(p.CameraZ-0.1, 0.05, 0.95)
+// 	// pitch, angle based on raycasted point at crosshairs
+// 	var pAngle, pPitch float64
+// 	// Todo
+// 	convergenceDistance := p.camera.GetConvergenceDistance()
+// 	convergencePoint := p.camera.GetConvergencePoint()
+// 	if convergenceDistance <= 0 || convergencePoint == nil {
+// 		pAngle, pPitch = p.Entity.Angle, p.Entity.Pitch
+// 	} else {
+// 		convergenceLine3d := &geom3d.Line3d{
+// 			X1: pX, Y1: pY, Z1: pZ,
+// 			X2: convergencePoint.X, Y2: convergencePoint.Y, Z2: convergencePoint.Z,
+// 		}
+// 		pAngle, pPitch = convergenceLine3d.Heading(), convergenceLine3d.Pitch()
+// 	}
+
+// 	projectile := w.SpawnProjectile(pX, pY, pZ, pAngle, pPitch, p.Entity)
+// 	if projectile != nil {
+// 		Todo
+// 		g.addProjectile(projectile)
+// 	}
+// }
+
+func (p *Player) drawWeapon(sz iregoter.ScreenSize) (iregoter.RegoterUpdatedImg, bool) {
+	// draw equipped weapon
+	if p.Weapon != nil {
+		w := p.Weapon
+		op := &ebiten.DrawImageOptions{}
+		op.Filter = ebiten.FilterNearest
+
+		weaponScale := w.Scale() * p.cfg.RenderScale
+		op.GeoM.Scale(weaponScale, weaponScale)
+		op.GeoM.Translate(
+			float64(sz.Width)/2-float64(w.W)*weaponScale/2,
+			float64(sz.Height)-float64(w.H)*weaponScale+1,
+		)
+
+		// Todo
+		// apply lighting setting
+		//op.ColorScale.Scale(float32(g.maxLightRGB.R)/255, float32(g.maxLightRGB.G)/255, float32(g.maxLightRGB.B)/255, 1)
+
+		img := w.Texture()
+		changed := true
+		info := iregoter.RegoterUpdatedImg{ImgOp: op, Sprite: nil, Img: img,
+			Visiable: true, Deleted: false, Changed: changed}
+		return info, true
 	} else {
-		convergenceLine3d := &geom3d.Line3d{
-			X1: pX, Y1: pY, Z1: pZ,
-			X2: convergencePoint.X, Y2: convergencePoint.Y, Z2: convergencePoint.Z,
-		}
-		pAngle, pPitch = convergenceLine3d.Heading(), convergenceLine3d.Pitch()
-	}
-
-	projectile := w.SpawnProjectile(pX, pY, pZ, pAngle, pPitch, g.player.Entity)
-	if projectile != nil {
-		g.addProjectile(projectile)
+		info := iregoter.RegoterUpdatedImg{}
+		return info, false
 	}
 }

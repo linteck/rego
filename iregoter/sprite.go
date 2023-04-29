@@ -1,4 +1,4 @@
-package model
+package iregoter
 
 import (
 	"image"
@@ -50,6 +50,10 @@ func (s *Sprite) TextureRect() image.Rectangle {
 
 func (s *Sprite) Illumination() float64 {
 	return s.illumination
+}
+
+func (s *Sprite) SetIllumination(illumination float64) {
+	s.illumination = illumination
 }
 
 func (s *Sprite) SetScreenRect(rect *image.Rectangle) {
@@ -258,7 +262,7 @@ func (s *Sprite) Update(camPos *geom.Vector2) {
 
 			// calculate angle from sprite relative to camera position by getting angle of line between them
 			lineToCam := geom.Line{X1: s.Position.X, Y1: s.Position.Y, X2: camPos.X, Y2: camPos.Y}
-			facingAngle := lineToCam.Angle() - s.Angle
+			facingAngle := lineToCam.Angle() - float64(s.Angle)
 			if facingAngle < 0 {
 				// convert to positive angle needed to determine facing index to use
 				facingAngle += geom.Pi2

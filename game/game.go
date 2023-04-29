@@ -3,9 +3,7 @@ package game
 import (
 	"embed"
 	"fmt"
-	"image/color"
 	"lintech/rego/iregoter"
-	"lintech/rego/regoter"
 	"math"
 	"math/rand"
 	"os"
@@ -17,21 +15,12 @@ import (
 	"lintech/rego/game/model"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
-	"github.com/harbdog/raycaster-go"
-	"github.com/harbdog/raycaster-go/geom"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/spf13/viper"
 )
 
 //go:embed resources
 var embedded embed.FS
-
-type osType int
-
-const (
-	osTypeDesktop osType = iota
-	osTypeBrowser
-)
 
 type gameTxMsgbox chan<- iregoter.IRegoterEvent
 type gameRxMsgbox <-chan iregoter.ICoreEvent
@@ -45,78 +34,23 @@ type Game struct {
 	paused bool
 
 	//--create slicer and declare slices--//
-	tex                *TextureHandler
-	initRenderFloorTex bool
-
-	// window resolution and scaling
-	screenWidth  int
-	screenHeight int
-	renderScale  float64
-	fullscreen   bool
-	vsync        bool
-	fovDegrees   float64
-	fovDepth     float64
-
-	//--viewport width / height--//
-	width  int
-	height int
-
-	player *model.Player
+	tex *TextureHandler
 
 	//--define camera and render scene--//
-	camera *raycaster.Camera
-	scene  *ebiten.Image
+	//camera *raycaster.Camera
 
-	mouseMode      MouseMode
-	mouseX, mouseY int
-
-	crosshairs *regoter.Regoter[*model.Crosshairs]
-
-	// zoom settings
-	zoomFovDepth float64
-
-	renderDistance float64
-
-	// lighting settings
-	lightFalloff       float64
-	globalIllumination float64
-	minLightRGB        color.NRGBA
-	maxLightRGB        color.NRGBA
-
-	//--array of levels, levels refer to "floors" of the world--//
-	mapObj       *model.Map
-	collisionMap []geom.Line
-
-	sprites     map[*model.Sprite]struct{}
-	projectiles map[*model.Projectile]struct{}
-	effects     map[*model.Effect]struct{}
-
-	mapWidth, mapHeight int
-
-	showSpriteBoxes bool
-	osType          osType
-	debug           bool
+	mouseInfo *iregoter.MouseInfo
+	cfg       *iregoter.GameCfg
 }
 
 // Update - Allows the game to run logic such as updating the world, gathering input, and playing audio.
 // Update is called every tick (1/60 [s] by default).
 func (g *Game) Update() error {
-	e := iregoter.GameEventTick{}
-	g.txToCore <- e
-
 	// handle input (when paused making sure only to allow input for closing menu so it can be unpaused)
-	g.handleInput()
+	g.handleInput(*g.mouseInfo)
 	if !g.paused {
-		// Perform logical updates
-		w := g.player.Weapon
-		if w != nil {
-			w.Update()
-		}
-		g.updateProjectiles()
-		g.updateSprites()
-
-		// handle player camera movement
-		g.updatePlayerCamera(false)
+		e := iregoter.GameEventTick{ScreenSize: iregoter.ScreenSize{Width: g.cfg.ScreenWidth, Height: g.cfg.ScreenHeight}}
+		g.txToCore <- e
 	}
 
 	// update the menu (if active)
@@ -139,108 +73,17 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	e := iregoter.GameEventDraw{Screen: screen}
 	g.txToCore <- e
 	<-g.rxFromCore
-	//logger.Print("Draw reply", r)
-
-	// Put projectiles together with sprites for raycasting both as sprites
-	numSprites, numProjectiles, numEffects := len(g.sprites), len(g.projectiles), len(g.effects)
-	raycastSprites := make([]raycaster.Sprite, numSprites+numProjectiles+numEffects)
-	index := 0
-	for sprite := range g.sprites {
-		raycastSprites[index] = sprite
-		index += 1
-	}
-	for projectile := range g.projectiles {
-		raycastSprites[index] = projectile.Sprite
-		index += 1
-	}
-	for effect := range g.effects {
-		raycastSprites[index] = effect.Sprite
-		index += 1
-	}
-
-	// Update camera (calculate raycast)
-	g.camera.Update(raycastSprites)
-
-	// Render raycast scene
-	g.camera.Draw(g.scene)
-
-	// draw equipped weapon
-	if g.player.Weapon != nil {
-		w := g.player.Weapon
-		op := &ebiten.DrawImageOptions{}
-		op.Filter = ebiten.FilterNearest
-
-		weaponScale := w.Scale() * g.renderScale
-		op.GeoM.Scale(weaponScale, weaponScale)
-		op.GeoM.Translate(
-			float64(g.width)/2-float64(w.W)*weaponScale/2,
-			float64(g.height)-float64(w.H)*weaponScale+1,
-		)
-
-		// apply lighting setting
-		op.ColorScale.Scale(float32(g.maxLightRGB.R)/255, float32(g.maxLightRGB.G)/255, float32(g.maxLightRGB.B)/255, 1)
-
-		g.scene.DrawImage(w.Texture(), op)
-	}
-
-	if g.showSpriteBoxes {
-		// draw sprite screen indicators to show we know where it was raycasted (must occur after camera.Update)
-		for sprite := range g.sprites {
-			drawSpriteBox(g.scene, sprite)
-		}
-
-		for sprite := range g.projectiles {
-			drawSpriteBox(g.scene, sprite.Sprite)
-		}
-
-		for sprite := range g.effects {
-			drawSpriteBox(g.scene, sprite.Sprite)
-		}
-	}
-
-	// draw sprite screen indicator only for sprite at point of convergence
-	convergenceSprite := g.camera.GetConvergenceSprite()
-	if convergenceSprite != nil {
-		for sprite := range g.sprites {
-			if convergenceSprite == sprite {
-				drawSpriteIndicator(g.scene, sprite)
-				break
-			}
-		}
-	}
-
-	// draw raycasted scene
-	op := &ebiten.DrawImageOptions{}
-	if g.renderScale < 1 {
-		op.Filter = ebiten.FilterNearest
-		op.GeoM.Scale(1/g.renderScale, 1/g.renderScale)
-	}
-	screen.DrawImage(g.scene, op)
-
-	// draw minimap
-	mm := g.miniMap()
-	mmImg := ebiten.NewImageFromImage(mm)
-	if mmImg != nil {
-		op := &ebiten.DrawImageOptions{}
-		op.Filter = ebiten.FilterNearest
-
-		op.GeoM.Scale(5.0, 5.0)
-		op.GeoM.Translate(0, 50)
-		screen.DrawImage(mmImg, op)
-	}
 
 	// draw menu (if active)
 	g.menu.draw(screen)
 
-	// draw FPS/TPS counter debug display
-	fps := fmt.Sprintf("FPS: %f\nTPS: %f/%v", ebiten.ActualFPS(), ebiten.ActualTPS(), ebiten.TPS())
-	ebitenutil.DebugPrint(screen, fps)
+	//logger.Print("Draw reply", r)
 }
 
 // Layout takes the outside size (e.g., the window size) and returns the (logical) screen size.
 // If you don't have to adjust the screen size with the outside size, just return a fixed size.
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
-	w, h := int(float64(g.screenWidth)), int(float64(g.screenHeight))
+	w, h := int(float64(g.cfg.ScreenWidth)), int(float64(g.cfg.ScreenHeight))
 	g.menu.layout(w, h)
 	return int(w), int(h)
 }
@@ -252,83 +95,46 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 func NewGame() *Game {
 	fmt.Printf("Initializing Game\n")
 	ebiten.SetWindowTitle("Rego Demo")
+	// default TPS is 60
+	// ebiten.SetMaxTPS(60)
 
 	rand.Seed(time.Now().UnixNano())
 
 	// initialize Game object
 	g := new(Game)
-	txToCore, rxFromCore := NewCore()
+	g.initConfig()
+
+	// load content once when first run
+	tex := loader.LoadContent()
+	if g.cfg.Debug {
+		tex.FloorTex = loader.GetRGBAFromFile("grass_debug.png")
+	} else {
+		tex.FloorTex = loader.GetRGBAFromFile("grass.png")
+	}
+
+	txToCore, rxFromCore := NewCore(g.cfg, tex)
 	g.txToCore = txToCore
 	g.rxFromCore = rxFromCore
 
-	// for i := 0; i < 10; i++ {
-	// 	regoter.NewSpiteWalker(txToCore)
-	// }
-
-	g.initConfig()
-
-	// default TPS is 60
-	// ebiten.SetMaxTPS(60)
-
-	// use scale to keep the desired window width and height
-	g.setResolution(g.screenWidth, g.screenHeight)
-	g.setRenderScale(g.renderScale)
-	g.setFullscreen(g.fullscreen)
-	g.setVsyncEnabled(g.vsync)
-
-	// load map
-	g.mapObj = model.NewMap()
-
-	// load texture handler
-	g.tex = NewTextureHandler(g.mapObj, 32)
-	g.tex.renderFloorTex = g.initRenderFloorTex
-
-	g.collisionMap = g.mapObj.GetCollisionLines(loader.ClipDistance)
-	worldMap := g.mapObj.Level(0)
-	g.mapWidth = len(worldMap)
-	g.mapHeight = len(worldMap[0])
-
 	// Todo
-	// load content once when first run
-	// g.loadContent()
 
 	// create crosshairs and weapon
-	g.crosshairs = model.NewCrosshairs(txToCore)
+	model.NewCrosshairs(txToCore)
+	model.NewPlayer(txToCore)
 
 	// Todo
 	// init the sprites
 	// g.loadSprites()
 
-	if g.osType == osTypeBrowser {
+	if g.cfg.OsType == iregoter.OsTypeBrowser {
 		// web browser cannot start with cursor captured
 	} else {
 		ebiten.SetCursorMode(ebiten.CursorModeCaptured)
 	}
 
 	// init mouse look mode
-	g.mouseMode = MouseModeLook
-	g.mouseX, g.mouseY = math.MinInt32, math.MinInt32
-
-	//--init camera and renderer--//
-	g.camera = raycaster.NewCamera(g.width, g.height, loader.TexWidth, g.mapObj, g.tex)
-	g.setRenderDistance(g.renderDistance)
-
-	g.camera.SetFloorTexture(loader.GetTextureFromFile("floor.png"))
-	g.camera.SetSkyTexture(loader.GetTextureFromFile("sky.png"))
-
-	// initialize camera to player position
-	g.updatePlayerCamera(true)
-	g.setFovAngle(g.fovDegrees)
-	g.fovDepth = g.camera.FovDepth()
-
-	g.zoomFovDepth = 2.0
-
-	// set demo lighting settings
-	g.setLightFalloff(-200)
-	g.setGlobalIllumination(500)
-	minLightRGB := color.NRGBA{R: 76, G: 76, B: 76}
-	maxLightRGB := color.NRGBA{R: 255, G: 255, B: 255}
-	g.setLightRGB(minLightRGB, maxLightRGB)
+	g.mouseInfo.MouseMode = iregoter.MouseModeLook
+	g.mouseInfo.MouseX, g.mouseInfo.MouseY = math.MinInt32, math.MinInt32
 
 	// init menu system
 	g.menu = createMenu(g)
@@ -380,21 +186,21 @@ func (g *Game) initConfig() {
 	}
 
 	err := viper.ReadInConfig()
-	if err != nil && g.debug {
+	if err != nil && g.cfg.Debug {
 		fmt.Print(err)
 	}
 
 	// get config values
-	g.screenWidth = viper.GetInt("screen.width")
-	g.screenHeight = viper.GetInt("screen.height")
-	g.fovDegrees = viper.GetFloat64("screen.fovDegrees")
-	g.renderScale = viper.GetFloat64("screen.renderScale")
-	g.fullscreen = viper.GetBool("screen.fullscreen")
-	g.vsync = viper.GetBool("screen.vsync")
-	g.renderDistance = viper.GetFloat64("screen.renderDistance")
-	g.initRenderFloorTex = viper.GetBool("screen.renderFloor")
-	g.showSpriteBoxes = viper.GetBool("showSpriteBoxes")
-	g.debug = viper.GetBool("debug")
+	g.cfg.ScreenWidth = viper.GetInt("screen.width")
+	g.cfg.ScreenHeight = viper.GetInt("screen.height")
+	g.cfg.FovDegrees = viper.GetFloat64("screen.fovDegrees")
+	g.cfg.RenderScale = viper.GetFloat64("screen.renderScale")
+	g.cfg.Fullscreen = viper.GetBool("screen.fullscreen")
+	g.cfg.Vsync = viper.GetBool("screen.vsync")
+	g.cfg.RenderDistance = viper.GetFloat64("screen.renderDistance")
+	g.cfg.InitRenderFloorTex = viper.GetBool("screen.renderFloor")
+	g.cfg.ShowSpriteBoxes = viper.GetBool("showSpriteBoxes")
+	g.cfg.Debug = viper.GetBool("debug")
 }
 
 func (g *Game) SaveConfig() error {
@@ -420,4 +226,36 @@ func (g *Game) SaveConfig() error {
 	}
 
 	return err
+}
+
+func (g *Game) handleInput(si iregoter.MouseInfo) bool {
+
+	menuKeyPressed := inpututil.IsKeyJustPressed(ebiten.KeyEscape) || inpututil.IsKeyJustPressed(ebiten.KeyF1)
+	if menuKeyPressed {
+		if g.menu.active {
+			if si.OsType == iregoter.OsTypeBrowser && inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+				// do not allow Esc key close menu in browser, since Esc key releases browser mouse capture
+			} else {
+				g.closeMenu()
+			}
+		} else {
+			g.openMenu()
+		}
+	}
+
+	if si.OsType == iregoter.OsTypeBrowser && ebiten.CursorMode() == ebiten.CursorModeVisible && !g.menu.active {
+		// not working sometimes (https://developer.mozilla.org/en-US/docs/Web/API/Pointer_Lock_API#iframe_limitations):
+		//   sm_exec.js:349 pointerlockerror event is fired. 'sandbox="allow-pointer-lock"' might be required at an iframe.
+		//   This function on browsers must be called as a result of a gestural interaction or orientation change.
+		//   localhost/:1 Uncaught (in promise) DOMException: The user has exited the lock before this request was completed.
+		g.openMenu()
+	}
+
+	if g.paused {
+		// currently only paused when menu is active, one could consider other pauses not the subject of this demo
+		return g.menu.active
+	}
+
+	return g.menu.active
+
 }

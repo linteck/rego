@@ -20,7 +20,8 @@ type rgRxMsgbox <-chan iregoter.ICoreEvent
 type rgTxMsgbox chan<- iregoter.IRegoterEvent
 
 type IThing interface {
-	Update(sz iregoter.Vision, c iregoter.ChanRegoterUpdate)
+	Update(c iregoter.ChanRegoterUpdate, rgEntity *iregoter.Entity,
+		playEntiry *iregoter.Entity, HasCollision bool, screenSize iregoter.ScreenSize)
 }
 
 type Regoter[T IThing] struct {
@@ -53,8 +54,8 @@ func (g *idGenerator) currentId() iregoter.ID {
 func (r *Regoter[T]) process(e iregoter.ICoreEvent) error {
 	//logger.Print(fmt.Sprintf("(%v) recv %T", r.id, e))
 	switch e.(type) {
-	case iregoter.CoreEventTick:
-		r.eventHandleUpdate(e.(iregoter.CoreEventTick))
+	case iregoter.CoreEventUpdateTick:
+		r.eventHandleUpdate(e.(iregoter.CoreEventUpdateTick))
 	default:
 		r.eventHandleUnknown(e)
 	}
@@ -63,12 +64,12 @@ func (r *Regoter[T]) process(e iregoter.ICoreEvent) error {
 
 // Update the position and status of Regoter
 // And send new Position and status to IGame
-func (r *Regoter[T]) eventHandleUpdate(e iregoter.CoreEventTick) error {
-	c := make(chan iregoter.RegoterUpdatedInfo)
-	go r.thing.Update(e.Vision, c)
+func (r *Regoter[T]) eventHandleUpdate(e iregoter.CoreEventUpdateTick) error {
+	c := make(chan iregoter.RegoterUpdatedImg)
+	go r.thing.Update(c, e.RgEntity, e.PlayEntiry, e.HasCollision, e.ScreenSize)
 	for info := range c {
 		if info.Visiable {
-			u := iregoter.RegoterEventUpdated{RgId: r.id, Info: info}
+			u := iregoter.RegoterEventUpdatedImg{RgId: r.id, Info: info}
 			r.txChan <- u
 		}
 	}

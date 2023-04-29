@@ -3,6 +3,7 @@ package game
 import (
 	"fmt"
 	"image/color"
+	"lintech/rego/iregoter"
 
 	"github.com/ebitenui/ebitenui/image"
 	"github.com/ebitenui/ebitenui/widget"
@@ -34,7 +35,7 @@ func gamePage(menu *DemoMenu) *page {
 	)
 	c.AddChild(resume)
 
-	if menu.game.osType == osTypeBrowser {
+	if menu.game.cfg.OsType == iregoter.OsTypeBrowser {
 		// exit in browser kills but freezes the application, users can just close the tab/window
 	} else {
 		// show in game exit button
@@ -79,7 +80,7 @@ func displayPage(menu *DemoMenu) *page {
 	var selectedResolution interface{}
 	for _, r := range menu.resolutions {
 		resolutions = append(resolutions, r)
-		if menu.game.screenWidth == r.width && menu.game.screenHeight == r.height {
+		if menu.game.cfg.ScreenWidth == r.width && menu.game.cfg.ScreenHeight == r.height {
 			selectedResolution = r
 		}
 	}
@@ -87,8 +88,8 @@ func displayPage(menu *DemoMenu) *page {
 	if selectedResolution == nil {
 		// generate custom entry to put at top of the list
 		r := MenuResolution{
-			width:  menu.game.screenWidth,
-			height: menu.game.screenHeight,
+			width:  menu.game.cfg.ScreenWidth,
+			height: menu.game.cfg.ScreenHeight,
 		}
 		resolutions = append([]interface{}{r}, resolutions...)
 	}
@@ -105,7 +106,7 @@ func displayPage(menu *DemoMenu) *page {
 		},
 		func(args *widget.ListComboButtonEntrySelectedEventArgs) {
 			r := args.Entry.(MenuResolution)
-			if menu.game.screenWidth != r.width || menu.game.screenHeight != r.height {
+			if menu.game.cfg.ScreenWidth != r.width || menu.game.cfg.ScreenHeight != r.height {
 				menu.game.setResolution(r.width, r.height)
 
 				// also pre-select ideal FOV for the aspect ratio
@@ -141,7 +142,7 @@ func displayPage(menu *DemoMenu) *page {
 			menu.game.setFovAngle(float64(args.Current))
 		}),
 	)
-	fovSlider.Current = int(menu.game.fovDegrees)
+	fovSlider.Current = int(menu.game.cfg.FovDegrees)
 	fovRow.AddChild(fovSlider)
 
 	fovValueText = widget.NewLabel(
@@ -172,7 +173,7 @@ func displayPage(menu *DemoMenu) *page {
 
 	var selectedScaling interface{}
 	for _, s := range scalings {
-		if s == menu.game.renderScale {
+		if s == menu.game.cfg.RenderScale {
 			selectedScaling = s
 		}
 	}
@@ -194,15 +195,17 @@ func displayPage(menu *DemoMenu) *page {
 	scalingRow.AddChild(scalingCombo)
 
 	// fullscreen checkbox
-	fsCheckbox := newCheckbox("Fullscreen", menu.game.fullscreen, func(args *widget.CheckboxChangedEventArgs) {
-		menu.game.setFullscreen(args.State == widget.WidgetChecked)
-	}, res)
+	fsCheckbox := newCheckbox("Fullscreen", menu.game.cfg.Fullscreen,
+		func(args *widget.CheckboxChangedEventArgs) {
+			menu.game.setFullscreen(args.State == widget.WidgetChecked)
+		}, res)
 	c.AddChild(fsCheckbox)
 
 	// vsync checkbox
-	vsCheckbox := newCheckbox("Use VSync", menu.game.vsync, func(args *widget.CheckboxChangedEventArgs) {
-		menu.game.setVsyncEnabled(args.State == widget.WidgetChecked)
-	}, res)
+	vsCheckbox := newCheckbox("Use VSync", menu.game.cfg.Vsync,
+		func(args *widget.CheckboxChangedEventArgs) {
+			menu.game.setVsyncEnabled(args.State == widget.WidgetChecked)
+		}, res)
 	c.AddChild(vsCheckbox)
 
 	return &page{
@@ -223,7 +226,8 @@ func renderPage(menu *DemoMenu) *page {
 	)
 	c.AddChild(distanceRow)
 
-	distanceLabel := widget.NewLabel(widget.LabelOpts.Text("Render Distance", res.label.face, res.label.text))
+	distanceLabel := widget.NewLabel(widget.LabelOpts.Text("Render Distance",
+		res.label.face, res.label.text))
 	distanceRow.AddChild(distanceLabel)
 
 	var distanceValueText *widget.Label
@@ -241,7 +245,7 @@ func renderPage(menu *DemoMenu) *page {
 			menu.game.setRenderDistance(float64(args.Current))
 		}),
 	)
-	distanceSlider.Current = int(menu.game.renderDistance)
+	distanceSlider.Current = int(menu.game.cfg.RenderDistance)
 	distanceRow.AddChild(distanceSlider)
 
 	distanceValueText = widget.NewLabel(
@@ -253,15 +257,17 @@ func renderPage(menu *DemoMenu) *page {
 	distanceRow.AddChild(distanceValueText)
 
 	// floor texturing checkbox
-	floorCheckbox := newCheckbox("Floor Texturing", menu.game.tex.renderFloorTex, func(args *widget.CheckboxChangedEventArgs) {
-		menu.game.tex.renderFloorTex = args.State == widget.WidgetChecked
-	}, res)
+	floorCheckbox := newCheckbox("Floor Texturing", menu.game.tex.renderFloorTex,
+		func(args *widget.CheckboxChangedEventArgs) {
+			menu.game.tex.renderFloorTex = args.State == widget.WidgetChecked
+		}, res)
 	c.AddChild(floorCheckbox)
 
 	// sprite boxes checkbox
-	spriteBoxCheckbox := newCheckbox("Sprite Boxes", menu.game.showSpriteBoxes, func(args *widget.CheckboxChangedEventArgs) {
-		menu.game.showSpriteBoxes = args.State == widget.WidgetChecked
-	}, res)
+	spriteBoxCheckbox := newCheckbox("Sprite Boxes", menu.game.cfg.ShowSpriteBoxes,
+		func(args *widget.CheckboxChangedEventArgs) {
+			menu.game.cfg.ShowSpriteBoxes = args.State == widget.WidgetChecked
+		}, res)
 	c.AddChild(spriteBoxCheckbox)
 
 	return &page{
@@ -300,7 +306,7 @@ func lightingPage(menu *DemoMenu) *page {
 			menu.game.setLightFalloff(float64(args.Current))
 		}),
 	)
-	falloffSlider.Current = int(menu.game.lightFalloff)
+	falloffSlider.Current = int(menu.game.cfg.LightFalloff)
 	falloffRow.AddChild(falloffSlider)
 
 	falloffValueText = widget.NewLabel(
@@ -337,7 +343,7 @@ func lightingPage(menu *DemoMenu) *page {
 			menu.game.setGlobalIllumination(float64(args.Current))
 		}),
 	)
-	globalSlider.Current = int(menu.game.globalIllumination)
+	globalSlider.Current = int(menu.game.cfg.GlobalIllumination)
 	globalRow.AddChild(globalSlider)
 
 	globalValueText = widget.NewLabel(
@@ -373,12 +379,13 @@ func lightingPage(menu *DemoMenu) *page {
 		widget.SliderOpts.TrackOffset(5),
 		widget.SliderOpts.ChangedHandler(func(args *widget.SliderChangedEventArgs) {
 			rMinText.Label = fmt.Sprintf("R: %d", args.Current)
-			rgb := menu.game.minLightRGB
-			menu.game.setLightRGB(color.NRGBA{R: uint8(args.Current), G: rgb.G, B: rgb.B, A: 255}, menu.game.maxLightRGB)
-			rgbMinValue.BackgroundImage = image.NewNineSliceColor(menu.game.minLightRGB)
+			rgb := menu.game.cfg.MinLightRGB
+			menu.game.setLightRGB(color.NRGBA{R: uint8(args.Current), G: rgb.G, B: rgb.B, A: 255},
+				menu.game.cfg.MaxLightRGB)
+			rgbMinValue.BackgroundImage = image.NewNineSliceColor(menu.game.cfg.MinLightRGB)
 		}),
 	)
-	rMinSlider.Current = int(menu.game.minLightRGB.R)
+	rMinSlider.Current = int(menu.game.cfg.MinLightRGB.R)
 
 	gMinSlider := widget.NewSlider(
 		widget.SliderOpts.WidgetOpts(widget.WidgetOpts.LayoutData(widget.RowLayoutData{
@@ -390,12 +397,13 @@ func lightingPage(menu *DemoMenu) *page {
 		widget.SliderOpts.TrackOffset(5),
 		widget.SliderOpts.ChangedHandler(func(args *widget.SliderChangedEventArgs) {
 			gMinText.Label = fmt.Sprintf("G: %d", args.Current)
-			rgb := menu.game.minLightRGB
-			menu.game.setLightRGB(color.NRGBA{R: rgb.R, G: uint8(args.Current), B: rgb.B, A: 255}, menu.game.maxLightRGB)
-			rgbMinValue.BackgroundImage = image.NewNineSliceColor(menu.game.minLightRGB)
+			rgb := menu.game.cfg.MinLightRGB
+			menu.game.setLightRGB(color.NRGBA{R: rgb.R, G: uint8(args.Current), B: rgb.B, A: 255},
+				menu.game.cfg.MaxLightRGB)
+			rgbMinValue.BackgroundImage = image.NewNineSliceColor(menu.game.cfg.MinLightRGB)
 		}),
 	)
-	gMinSlider.Current = int(menu.game.minLightRGB.G)
+	gMinSlider.Current = int(menu.game.cfg.MinLightRGB.G)
 
 	bMinSlider := widget.NewSlider(
 		widget.SliderOpts.WidgetOpts(widget.WidgetOpts.LayoutData(widget.RowLayoutData{
@@ -407,18 +415,19 @@ func lightingPage(menu *DemoMenu) *page {
 		widget.SliderOpts.TrackOffset(5),
 		widget.SliderOpts.ChangedHandler(func(args *widget.SliderChangedEventArgs) {
 			bMinText.Label = fmt.Sprintf("B: %d", args.Current)
-			rgb := menu.game.minLightRGB
-			menu.game.setLightRGB(color.NRGBA{R: rgb.R, G: rgb.G, B: uint8(args.Current), A: 255}, menu.game.maxLightRGB)
-			rgbMinValue.BackgroundImage = image.NewNineSliceColor(menu.game.minLightRGB)
+			rgb := menu.game.cfg.MinLightRGB
+			menu.game.setLightRGB(color.NRGBA{R: rgb.R, G: rgb.G, B: uint8(args.Current), A: 255},
+				menu.game.cfg.MaxLightRGB)
+			rgbMinValue.BackgroundImage = image.NewNineSliceColor(menu.game.cfg.MinLightRGB)
 		}),
 	)
-	bMinSlider.Current = int(menu.game.minLightRGB.B)
+	bMinSlider.Current = int(menu.game.cfg.MinLightRGB.B)
 
 	rMinText = widget.NewLabel(widget.LabelOpts.Text(fmt.Sprintf("R: %d", rMinSlider.Current), res.label.face, res.label.text))
 	gMinText = widget.NewLabel(widget.LabelOpts.Text(fmt.Sprintf("G: %d", gMinSlider.Current), res.label.face, res.label.text))
 	bMinText = widget.NewLabel(widget.LabelOpts.Text(fmt.Sprintf("B: %d", bMinSlider.Current), res.label.face, res.label.text))
 
-	rgbMinBackground := image.NewNineSliceColor(menu.game.minLightRGB)
+	rgbMinBackground := image.NewNineSliceColor(menu.game.cfg.MinLightRGB)
 	rgbMinValue = widget.NewContainer(widget.ContainerOpts.BackgroundImage(rgbMinBackground))
 
 	// min RGB row 1
@@ -458,12 +467,13 @@ func lightingPage(menu *DemoMenu) *page {
 		widget.SliderOpts.TrackOffset(5),
 		widget.SliderOpts.ChangedHandler(func(args *widget.SliderChangedEventArgs) {
 			rMaxText.Label = fmt.Sprintf("R: %d", args.Current)
-			rgb := menu.game.maxLightRGB
-			menu.game.setLightRGB(menu.game.minLightRGB, color.NRGBA{R: uint8(args.Current), G: rgb.G, B: rgb.B, A: 255})
-			rgbMaxValue.BackgroundImage = image.NewNineSliceColor(menu.game.maxLightRGB)
+			rgb := menu.game.cfg.MaxLightRGB
+			menu.game.setLightRGB(menu.game.cfg.MinLightRGB,
+				color.NRGBA{R: uint8(args.Current), G: rgb.G, B: rgb.B, A: 255})
+			rgbMaxValue.BackgroundImage = image.NewNineSliceColor(menu.game.cfg.MaxLightRGB)
 		}),
 	)
-	rMaxSlider.Current = int(menu.game.maxLightRGB.R)
+	rMaxSlider.Current = int(menu.game.cfg.MaxLightRGB.R)
 
 	gMaxSlider := widget.NewSlider(
 		widget.SliderOpts.WidgetOpts(widget.WidgetOpts.LayoutData(widget.RowLayoutData{
@@ -475,12 +485,13 @@ func lightingPage(menu *DemoMenu) *page {
 		widget.SliderOpts.TrackOffset(5),
 		widget.SliderOpts.ChangedHandler(func(args *widget.SliderChangedEventArgs) {
 			gMaxText.Label = fmt.Sprintf("G: %d", args.Current)
-			rgb := menu.game.maxLightRGB
-			menu.game.setLightRGB(menu.game.minLightRGB, color.NRGBA{R: rgb.R, G: uint8(args.Current), B: rgb.B, A: 255})
-			rgbMaxValue.BackgroundImage = image.NewNineSliceColor(menu.game.maxLightRGB)
+			rgb := menu.game.cfg.MaxLightRGB
+			menu.game.setLightRGB(menu.game.cfg.MinLightRGB,
+				color.NRGBA{R: rgb.R, G: uint8(args.Current), B: rgb.B, A: 255})
+			rgbMaxValue.BackgroundImage = image.NewNineSliceColor(menu.game.cfg.MaxLightRGB)
 		}),
 	)
-	gMaxSlider.Current = int(menu.game.maxLightRGB.G)
+	gMaxSlider.Current = int(menu.game.cfg.MaxLightRGB.G)
 
 	bMaxSlider := widget.NewSlider(
 		widget.SliderOpts.WidgetOpts(widget.WidgetOpts.LayoutData(widget.RowLayoutData{
@@ -492,18 +503,22 @@ func lightingPage(menu *DemoMenu) *page {
 		widget.SliderOpts.TrackOffset(5),
 		widget.SliderOpts.ChangedHandler(func(args *widget.SliderChangedEventArgs) {
 			bMaxText.Label = fmt.Sprintf("B: %d", args.Current)
-			rgb := menu.game.maxLightRGB
-			menu.game.setLightRGB(menu.game.minLightRGB, color.NRGBA{R: rgb.R, G: rgb.G, B: uint8(args.Current), A: 255})
-			rgbMaxValue.BackgroundImage = image.NewNineSliceColor(menu.game.maxLightRGB)
+			rgb := menu.game.cfg.MaxLightRGB
+			menu.game.setLightRGB(menu.game.cfg.MinLightRGB,
+				color.NRGBA{R: rgb.R, G: rgb.G, B: uint8(args.Current), A: 255})
+			rgbMaxValue.BackgroundImage = image.NewNineSliceColor(menu.game.cfg.MaxLightRGB)
 		}),
 	)
-	bMaxSlider.Current = int(menu.game.maxLightRGB.B)
+	bMaxSlider.Current = int(menu.game.cfg.MaxLightRGB.B)
 
-	rMaxText = widget.NewLabel(widget.LabelOpts.Text(fmt.Sprintf("R: %d", rMaxSlider.Current), res.label.face, res.label.text))
-	gMaxText = widget.NewLabel(widget.LabelOpts.Text(fmt.Sprintf("G: %d", gMaxSlider.Current), res.label.face, res.label.text))
-	bMaxText = widget.NewLabel(widget.LabelOpts.Text(fmt.Sprintf("B: %d", bMaxSlider.Current), res.label.face, res.label.text))
+	rMaxText = widget.NewLabel(widget.LabelOpts.Text(fmt.Sprintf("R: %d", rMaxSlider.Current),
+		res.label.face, res.label.text))
+	gMaxText = widget.NewLabel(widget.LabelOpts.Text(fmt.Sprintf("G: %d", gMaxSlider.Current),
+		res.label.face, res.label.text))
+	bMaxText = widget.NewLabel(widget.LabelOpts.Text(fmt.Sprintf("B: %d", bMaxSlider.Current),
+		res.label.face, res.label.text))
 
-	rgbMaxBackground := image.NewNineSliceColor(menu.game.maxLightRGB)
+	rgbMaxBackground := image.NewNineSliceColor(menu.game.cfg.MaxLightRGB)
 	rgbMaxValue = widget.NewContainer(widget.ContainerOpts.BackgroundImage(rgbMaxBackground))
 
 	// max RGB row 1
