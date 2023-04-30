@@ -20,7 +20,7 @@ func (p *Player) handleInput(menuActive bool, si *iregoter.MouseInfo) {
 	}
 
 	switch {
-	case ebiten.IsKeyPressed(ebiten.KeyControl) && si.OsType == iregoter.OsTypeBrowser:
+	case ebiten.IsKeyPressed(ebiten.KeyControl) && p.cfg.OsType == iregoter.OsTypeBrowser:
 		// debug cursor mode not intended for browser purposes
 		if si.MouseMode != iregoter.MouseModeCursor {
 			ebiten.SetCursorMode(ebiten.CursorModeVisible)
@@ -31,24 +31,24 @@ func (p *Player) handleInput(menuActive bool, si *iregoter.MouseInfo) {
 		if si.MouseMode != iregoter.MouseModeMove {
 			ebiten.SetCursorMode(ebiten.CursorModeCaptured)
 			si.MouseMode = iregoter.MouseModeMove
-			p.mouseX, p.mouseY = math.MinInt32, math.MinInt32
+			si.MouseX, si.MouseY = math.MinInt32, math.MinInt32
 		}
 
 	case !menuActive && si.MouseMode != iregoter.MouseModeLook:
 		ebiten.SetCursorMode(ebiten.CursorModeCaptured)
 		si.MouseMode = iregoter.MouseModeLook
-		p.mouseX, p.mouseY = math.MinInt32, math.MinInt32
+		si.MouseX, si.MouseY = math.MinInt32, math.MinInt32
 	}
 
 	switch si.MouseMode {
 	case iregoter.MouseModeCursor:
-		p.mouseX, p.mouseY = ebiten.CursorPosition()
+		si.MouseX, si.MouseY = ebiten.CursorPosition()
 		if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
-			fmt.Printf("mouse left clicked: (%v, %v)\n", p.mouseX, p.mouseY)
+			fmt.Printf("mouse left clicked: (%v, %v)\n", si.MouseX, si.MouseY)
 		}
 
 		if ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight) {
-			fmt.Printf("mouse right clicked: (%v, %v)\n", p.mouseX, p.mouseY)
+			fmt.Printf("mouse right clicked: (%v, %v)\n", si.MouseX, si.MouseY)
 		}
 
 	case iregoter.MouseModeMove:
@@ -65,15 +65,15 @@ func (p *Player) handleInput(menuActive bool, si *iregoter.MouseInfo) {
 		}
 
 		switch {
-		case p.mouseX == math.MinInt32 && p.mouseY == math.MinInt32:
+		case si.MouseX == math.MinInt32 && si.MouseY == math.MinInt32:
 			// initialize first position to establish delta
 			if x != 0 && y != 0 {
-				p.mouseX, p.mouseY = x, y
+				si.MouseX, si.MouseY = x, y
 			}
 
 		default:
-			dx, dy := p.mouseX-x, p.mouseY-y
-			p.mouseX, p.mouseY = x, y
+			dx, dy := si.MouseX-x, si.MouseY-y
+			si.MouseX, si.MouseY = x, y
 
 			if dx != 0 {
 				if isStrafeMove {
@@ -109,15 +109,15 @@ func (p *Player) handleInput(menuActive bool, si *iregoter.MouseInfo) {
 		// }
 
 		switch {
-		case p.mouseX == math.MinInt32 && p.mouseY == math.MinInt32:
+		case si.MouseX == math.MinInt32 && si.MouseY == math.MinInt32:
 			// initialize first position to establish delta
 			if x != 0 && y != 0 {
-				p.mouseX, p.mouseY = x, y
+				si.MouseX, si.MouseY = x, y
 			}
 
 		default:
-			dx, dy := p.mouseX-x, p.mouseY-y
-			p.mouseX, p.mouseY = x, y
+			dx, dy := si.MouseX-x, si.MouseY-y
+			si.MouseX, si.MouseY = x, y
 
 			if dx != 0 {
 				p.Rotate(iregoter.RotateAngle(0.005 * float64(dx) * moveModifier))

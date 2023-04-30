@@ -8,15 +8,15 @@ import (
 
 type TextureHandler struct {
 	mapObj         *Map
-	textures       []*ebiten.Image
-	floorTex       *image.RGBA
+	Textures       []*ebiten.Image
+	FloorTex       *image.RGBA
 	RenderFloorTex bool
 }
 
 func NewTextureHandler(mapObj *Map, textureCapacity int) *TextureHandler {
 	t := &TextureHandler{
 		mapObj:         mapObj,
-		textures:       make([]*ebiten.Image, textureCapacity),
+		Textures:       make([]*ebiten.Image, textureCapacity),
 		RenderFloorTex: true,
 	}
 	return t
@@ -67,14 +67,14 @@ func (t *TextureHandler) TextureAt(x, y, levelNum, side int) *ebiten.Image {
 	if texNum < 0 {
 		return nil
 	}
-	return t.textures[texNum]
+	return t.Textures[texNum]
 }
 
 func (t *TextureHandler) FloorTextureAt(x, y int) *image.RGBA {
 	// x/y could be used to render different floor texture at given coords,
 	// but for this demo we will just be rendering the same texture everywhere.
 	if t.RenderFloorTex {
-		return t.floorTex
+		return t.FloorTex
 	}
 	return nil
 }

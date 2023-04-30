@@ -34,7 +34,6 @@ type Game struct {
 	paused bool
 
 	//--create slicer and declare slices--//
-	tex *TextureHandler
 
 	//--define camera and render scene--//
 	//camera *raycaster.Camera
@@ -120,7 +119,7 @@ func NewGame() *Game {
 
 	// create crosshairs and weapon
 	model.NewCrosshairs(txToCore)
-	model.NewPlayer(txToCore)
+	model.NewPlayer(txToCore, g.cfg)
 
 	// Todo
 	// init the sprites
@@ -149,9 +148,9 @@ func (g *Game) initConfig() {
 	// special behavior needed for wasm play
 	switch runtime.GOOS {
 	case "js":
-		g.osType = osTypeBrowser
+		g.cfg.OsType = iregoter.OsTypeBrowser
 	default:
-		g.osType = osTypeDesktop
+		g.cfg.OsType = iregoter.OsTypeDesktop
 	}
 
 	// setup environment variable with DEMO as prefix (e.g. "export DEMO_SCREEN_VSYNC=false")
@@ -175,7 +174,7 @@ func (g *Game) initConfig() {
 	viper.SetDefault("screen.renderFloor", true)
 	viper.SetDefault("screen.fovDegrees", 68)
 
-	if g.osType == osTypeBrowser {
+	if g.cfg.OsType == iregoter.OsTypeBrowser {
 		viper.SetDefault("screen.width", 800)
 		viper.SetDefault("screen.height", 600)
 		viper.SetDefault("screen.renderScale", 0.5)
@@ -198,7 +197,7 @@ func (g *Game) initConfig() {
 	g.cfg.Fullscreen = viper.GetBool("screen.fullscreen")
 	g.cfg.Vsync = viper.GetBool("screen.vsync")
 	g.cfg.RenderDistance = viper.GetFloat64("screen.renderDistance")
-	g.cfg.InitRenderFloorTex = viper.GetBool("screen.renderFloor")
+	g.cfg.RenderFloorTex = viper.GetBool("screen.renderFloor")
 	g.cfg.ShowSpriteBoxes = viper.GetBool("showSpriteBoxes")
 	g.cfg.Debug = viper.GetBool("debug")
 }
@@ -233,7 +232,7 @@ func (g *Game) handleInput(si iregoter.MouseInfo) bool {
 	menuKeyPressed := inpututil.IsKeyJustPressed(ebiten.KeyEscape) || inpututil.IsKeyJustPressed(ebiten.KeyF1)
 	if menuKeyPressed {
 		if g.menu.active {
-			if si.OsType == iregoter.OsTypeBrowser && inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+			if g.cfg.OsType == iregoter.OsTypeBrowser && inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
 				// do not allow Esc key close menu in browser, since Esc key releases browser mouse capture
 			} else {
 				g.closeMenu()
@@ -243,7 +242,7 @@ func (g *Game) handleInput(si iregoter.MouseInfo) bool {
 		}
 	}
 
-	if si.OsType == iregoter.OsTypeBrowser && ebiten.CursorMode() == ebiten.CursorModeVisible && !g.menu.active {
+	if g.cfg.OsType == iregoter.OsTypeBrowser && ebiten.CursorMode() == ebiten.CursorModeVisible && !g.menu.active {
 		// not working sometimes (https://developer.mozilla.org/en-US/docs/Web/API/Pointer_Lock_API#iframe_limitations):
 		//   sm_exec.js:349 pointerlockerror event is fired. 'sandbox="allow-pointer-lock"' might be required at an iframe.
 		//   This function on browsers must be called as a result of a gestural interaction or orientation change.

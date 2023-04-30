@@ -167,7 +167,7 @@ type GameCfg struct {
 	MinLightRGB        color.NRGBA
 	MaxLightRGB        color.NRGBA
 	//
-	InitRenderFloorTex bool
+	RenderFloorTex bool
 	// Debug option
 	ShowSpriteBoxes bool
 	Debug           bool

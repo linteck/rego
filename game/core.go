@@ -258,7 +258,7 @@ func NewCore(cfg *iregoter.GameCfg, tex *loader.TextureHandler) (chan<- iregoter
 
 	// load texture handler
 	//tex := NewTextureHandler(mapObj, 32)
-	tex.RenderFloorTex = cfg.InitRenderFloorTex
+	tex.RenderFloorTex = cfg.RenderFloorTex
 
 	camera := raycaster.NewCamera(cfg.Width, cfg.Height, loader.TexWidth, mapObj, tex)
 	core := &Core{rxBox: c, txToGame: g, rgs: rgs, imgs: imgs,
@@ -425,4 +425,9 @@ func (g *Core) setVsyncEnabled(enableVsync bool) {
 func (g *Core) setFovAngle(fovDegrees float64) {
 	g.cfg.FovDegrees = fovDegrees
 	g.camera.SetFovAngle(fovDegrees, 1.0)
+}
+
+func (g *Core) setRenderFloorTexture(r bool) {
+	//Todo
+	//g.tex.RenderFloorTex = r
 }
