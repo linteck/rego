@@ -234,7 +234,7 @@ func (g *Core) Run() {
 	}
 }
 
-func NewCore(cfg *iregoter.GameCfg, tex *loader.TextureHandler) (chan<- iregoter.IRegoterEvent, <-chan iregoter.ICoreEvent) {
+func NewCore(cfg *iregoter.GameCfg) (chan<- iregoter.IRegoterEvent, <-chan iregoter.ICoreEvent) {
 	c := make(chan iregoter.IRegoterEvent)
 	g := make(chan iregoter.ICoreEvent)
 
@@ -255,6 +255,14 @@ func NewCore(cfg *iregoter.GameCfg, tex *loader.TextureHandler) (chan<- iregoter
 	worldMap := mapObj.Level(0)
 	mapWidth := len(worldMap)
 	mapHeight := len(worldMap[0])
+
+	// load content once when first run
+	tex := loader.LoadContent(mapObj)
+	if cfg.Debug {
+		tex.FloorTex = loader.GetRGBAFromFile("grass_debug.png")
+	} else {
+		tex.FloorTex = loader.GetRGBAFromFile("grass.png")
+	}
 
 	// load texture handler
 	//tex := NewTextureHandler(mapObj, 32)

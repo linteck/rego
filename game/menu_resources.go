@@ -298,7 +298,7 @@ func loadFonts() (*fonts, error) {
 }
 
 func loadFont(path string, size float64) (font.Face, error) {
-	fontData, err := embedded.ReadFile(path)
+	fontData, err := loader.Embedded.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}

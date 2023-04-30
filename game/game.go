@@ -1,7 +1,6 @@
 package game
 
 import (
-	"embed"
 	"fmt"
 	"lintech/rego/iregoter"
 	"math"
@@ -11,16 +10,12 @@ import (
 	"strings"
 	"time"
 
-	"lintech/rego/game/loader"
 	"lintech/rego/game/model"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/spf13/viper"
 )
-
-//go:embed resources
-var embedded embed.FS
 
 type gameTxMsgbox chan<- iregoter.IRegoterEvent
 type gameRxMsgbox <-chan iregoter.ICoreEvent
@@ -39,7 +34,7 @@ type Game struct {
 	//camera *raycaster.Camera
 
 	mouseInfo *iregoter.MouseInfo
-	cfg       *iregoter.GameCfg
+	cfg       iregoter.GameCfg
 }
 
 // Update - Allows the game to run logic such as updating the world, gathering input, and playing audio.
@@ -103,15 +98,7 @@ func NewGame() *Game {
 	g := new(Game)
 	g.initConfig()
 
-	// load content once when first run
-	tex := loader.LoadContent()
-	if g.cfg.Debug {
-		tex.FloorTex = loader.GetRGBAFromFile("grass_debug.png")
-	} else {
-		tex.FloorTex = loader.GetRGBAFromFile("grass.png")
-	}
-
-	txToCore, rxFromCore := NewCore(g.cfg, tex)
+	txToCore, rxFromCore := NewCore(&g.cfg)
 	g.txToCore = txToCore
 	g.rxFromCore = rxFromCore
 
@@ -119,7 +106,7 @@ func NewGame() *Game {
 
 	// create crosshairs and weapon
 	model.NewCrosshairs(txToCore)
-	model.NewPlayer(txToCore, g.cfg)
+	model.NewPlayer(txToCore, &g.cfg)
 
 	// Todo
 	// init the sprites

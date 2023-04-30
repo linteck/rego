@@ -11,7 +11,8 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
 
-var embedded embed.FS
+//go:embed resources
+var Embedded embed.FS
 
 const (
 	//--RaycastEngine constants
@@ -25,10 +26,10 @@ const (
 
 // loadContent will be called once per game and is the place to load
 // all of your content.
-func LoadContent() *TextureHandler {
+func LoadContent(mapObj *Map) *TextureHandler {
 
 	// TODO: make resource management better
-	tex := TextureHandler{}
+	tex := NewTextureHandler(mapObj, 32)
 	// load wall textures
 	tex.Textures[0] = GetTextureFromFile("stone.png")
 	tex.Textures[1] = GetTextureFromFile("left_bot_house.png")
@@ -56,11 +57,11 @@ func LoadContent() *TextureHandler {
 	tex.Textures[24] = GetSpriteFromFile("bat_sheet.png")
 
 	// just setting the grass texture apart from the rest since it gets special handling
-	return &tex
+	return tex
 }
 
 func NewImageFromFile(path string) (*ebiten.Image, image.Image, error) {
-	f, err := embedded.Open(filepath.ToSlash(path))
+	f, err := Embedded.Open(filepath.ToSlash(path))
 	if err != nil {
 		return nil, nil, err
 	}
