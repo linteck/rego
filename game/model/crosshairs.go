@@ -4,27 +4,19 @@ import (
 	"image/color"
 	"lintech/rego/game/loader"
 	"lintech/rego/iregoter"
-	"lintech/rego/regoter"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/harbdog/raycaster-go"
-	"github.com/jinzhu/copier"
 )
 
 type resourceCrosshairs struct {
 	texture *ebiten.Image
 }
 
-type Crosshairs struct {
-	*iregoter.Sprite
-	hitTimer     int
-	HitIndicator *Crosshairs
-}
+const fullHealth = 100
 
-type SpriteSheet struct {
-	x, y, scale                             float64
-	img                                     *ebiten.Image
-	columns, rows, crosshairIndex, hitIndex int
+type Crosshairs struct {
+	rgData iregoter.RegoterData
+	health int
 }
 
 var crosshairsResource *resourceCrosshairs
@@ -39,63 +31,83 @@ func loadCrosshairsResource() *resourceCrosshairs {
 
 //g.tex.textures[16] = GetSpriteFromFile("crosshairs_sheet.png")
 
-func NewCrosshairs(coreMsgbox chan<- iregoter.IRegoterEvent) *regoter.Regoter[*Crosshairs] {
+func NewCrosshairs(coreMsgbox chan<- iregoter.IRegoterEvent) *Regoter[*Crosshairs] {
 	loadCrosshairsResource()
-	s := SpriteSheet{1, 1, 2.0, crosshairsResource.texture, 8, 8, 55, 57}
-
-	mapColor := color.RGBA{0, 0, 0, 0}
+	id := RgIdGenerator.GenId()
+	entity := iregoter.Entity{
+		Position:   iregoter.Position{X: 1, Y: 1, Z: 0},
+		Scale:      2,
+		MapColor:   color.RGBA{0, 0, 0, 0},
+		Collidable: true}
+	di := iregoter.DrawInfo{
+		ImgLayer:    iregoter.ImgLayerSprite,
+		Img:         crosshairsResource.texture,
+		Columns:     8,
+		Rows:        8,
+		SpriteIndex: 55,
+		HitIndex:    57,
+	}
 	t := &Crosshairs{
-		Sprite: iregoter.NewSpriteFromSheet(s.x, s.y, s.scale, s.img, mapColor, s.columns, s.rows, s.crosshairIndex, raycaster.AnchorCenter, 0, 0),
+		rgData: iregoter.RegoterData{
+			RgId:     id,
+			Entity:   entity,
+			DrawInfo: di,
+		},
+		health: fullHealth,
 	}
 
-	hitIndicator := &Crosshairs{}
-	copier.Copy(hitIndicator, t)
-	hitIndicator.Sprite.SetAnimationFrame(s.hitIndex)
-	t.HitIndicator = hitIndicator
-
-	r := regoter.NewRegoter(coreMsgbox, t)
+	r := NewRegoter(coreMsgbox, t)
 	return r
 }
 
-func (c *Crosshairs) ActivateHitIndicator(hitTime int) {
-	if c.HitIndicator != nil {
-		c.hitTimer = hitTime
-	}
-}
+// func (c *Crosshairs) ActivateHitIndicator(hitTime int) {
+// 	if c.HitIndicator != nil {
+// 		c.hitTimer = hitTime
+// 	}
+// }
 
-func (c *Crosshairs) IsHitIndicatorActive() bool {
-	return c.HitIndicator != nil && c.hitTimer > 0
-}
+// func (c *Crosshairs) IsHitIndicatorActive() bool {
+// 	return c.HitIndicator != nil && c.hitTimer > 0
+// }
 
-func (c *Crosshairs) Update(cu iregoter.ChanRegoterUpdate, rgEntity *iregoter.Entity,
-	playEntiry *iregoter.Entity, HasCollision bool, screenSize iregoter.ScreenSize) {
+func (c *Crosshairs) Update(cu iregoter.RgTxMsgbox, rgEntity iregoter.Entity,
+	playEntiry iregoter.Entity, rgState iregoter.RegoterState) {
 
-	if c.HitIndicator != nil && c.hitTimer > 0 {
-		// TODO: prefer to use timer rather than frame update counter?
-		c.hitTimer -= 1
+	c.rgData.Entity = rgEntity
+
+	c.health -= rgState.HitHarm
+	if c.health <= 0 {
+		// Send Unregister to show 'Die'
+		cu <- iregoter.RegoterEventRegoterUnregister{RgId: c.rgData.RgId}
 	}
 	// draw crosshairs
-	op := &ebiten.DrawImageOptions{}
-	op.Filter = ebiten.FilterNearest
+	// op := &ebiten.DrawImageOptions{}
+	// op.Filter = ebiten.FilterNearest
 
-	s := c.Sprite
-	crosshairScale := c.Sprite.Scale()
-	op.GeoM.Scale(crosshairScale, crosshairScale)
-	op.GeoM.Translate(
-		float64(screenSize.Width)/2-float64(s.W)*crosshairScale/2,
-		float64(screenSize.Height)/2-float64(s.H)*crosshairScale/2,
-	)
+	// s := c.Sprite
+	// crosshairScale := c.Sprite.Scale()
+	// op.GeoM.Scale(crosshairScale, crosshairScale)
+	// op.GeoM.Translate(
+	// 	float64(screenSize.Width)/2-float64(s.W)*crosshairScale/2,
+	// 	float64(screenSize.Height)/2-float64(s.H)*crosshairScale/2,
+	// )
 
-	changed := true
-	info := iregoter.RegoterUpdatedImg{ImgOp: op, Sprite: s,
-		Visiable: true, Deleted: false, Changed: changed}
-	cu <- info
-
+	// changed := true
+	// info := iregoter.RegoterUpdatedImg{ImgOp: op, Sprite: s,
+	// 	Visiable: true, Deleted: false, Changed: changed}
+	// e := iregoter.RegoterEventUpdatedImg{RgId: 0, Info: info}
+	// cu <- e
 	// Todo
 	// if c.IsHitIndicatorActive() {
 	// 	screen.DrawImage(g.crosshairs.HitIndicator.Texture(), op)
 	// 	g.crosshairs.Update()
 	// 	cu <- info
 	// }
-	close(cu)
+}
+
+func (c *Crosshairs) SetConfig(cfg iregoter.GameCfg) {
+}
+
+func (c *Crosshairs) GetData() iregoter.RegoterData {
+	return c.rgData
 }

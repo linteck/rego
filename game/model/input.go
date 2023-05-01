@@ -8,7 +8,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-func (p *Player) handleInput(menuActive bool, si *iregoter.MouseInfo) {
+func (p *Player) handleInput(menuActive bool, si *iregoter.MousePosition) {
 	forward := false
 	backward := false
 	rotLeft := false
@@ -22,33 +22,33 @@ func (p *Player) handleInput(menuActive bool, si *iregoter.MouseInfo) {
 	switch {
 	case ebiten.IsKeyPressed(ebiten.KeyControl) && p.cfg.OsType == iregoter.OsTypeBrowser:
 		// debug cursor mode not intended for browser purposes
-		if si.MouseMode != iregoter.MouseModeCursor {
+		if p.cfg.MouseMode != iregoter.MouseModeCursor {
 			ebiten.SetCursorMode(ebiten.CursorModeVisible)
-			si.MouseMode = iregoter.MouseModeCursor
+			p.cfg.MouseMode = iregoter.MouseModeCursor
 		}
 
 	case ebiten.IsKeyPressed(ebiten.KeyAlt):
-		if si.MouseMode != iregoter.MouseModeMove {
+		if p.cfg.MouseMode != iregoter.MouseModeMove {
 			ebiten.SetCursorMode(ebiten.CursorModeCaptured)
-			si.MouseMode = iregoter.MouseModeMove
-			si.MouseX, si.MouseY = math.MinInt32, math.MinInt32
+			p.cfg.MouseMode = iregoter.MouseModeMove
+			si.X, si.Y = math.MinInt32, math.MinInt32
 		}
 
-	case !menuActive && si.MouseMode != iregoter.MouseModeLook:
+	case !menuActive && p.cfg.MouseMode != iregoter.MouseModeLook:
 		ebiten.SetCursorMode(ebiten.CursorModeCaptured)
-		si.MouseMode = iregoter.MouseModeLook
-		si.MouseX, si.MouseY = math.MinInt32, math.MinInt32
+		p.cfg.MouseMode = iregoter.MouseModeLook
+		si.X, si.Y = math.MinInt32, math.MinInt32
 	}
 
-	switch si.MouseMode {
+	switch p.cfg.MouseMode {
 	case iregoter.MouseModeCursor:
-		si.MouseX, si.MouseY = ebiten.CursorPosition()
+		si.X, si.Y = ebiten.CursorPosition()
 		if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
-			fmt.Printf("mouse left clicked: (%v, %v)\n", si.MouseX, si.MouseY)
+			fmt.Printf("mouse left clicked: (%v, %v)\n", si.X, si.Y)
 		}
 
 		if ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight) {
-			fmt.Printf("mouse right clicked: (%v, %v)\n", si.MouseX, si.MouseY)
+			fmt.Printf("mouse right clicked: (%v, %v)\n", si.X, si.Y)
 		}
 
 	case iregoter.MouseModeMove:
@@ -65,15 +65,15 @@ func (p *Player) handleInput(menuActive bool, si *iregoter.MouseInfo) {
 		}
 
 		switch {
-		case si.MouseX == math.MinInt32 && si.MouseY == math.MinInt32:
+		case si.X == math.MinInt32 && si.Y == math.MinInt32:
 			// initialize first position to establish delta
 			if x != 0 && y != 0 {
-				si.MouseX, si.MouseY = x, y
+				si.X, si.Y = x, y
 			}
 
 		default:
-			dx, dy := si.MouseX-x, si.MouseY-y
-			si.MouseX, si.MouseY = x, y
+			dx, dy := si.X-x, si.Y-y
+			si.X, si.Y = x, y
 
 			if dx != 0 {
 				if isStrafeMove {
@@ -109,15 +109,15 @@ func (p *Player) handleInput(menuActive bool, si *iregoter.MouseInfo) {
 		// }
 
 		switch {
-		case si.MouseX == math.MinInt32 && si.MouseY == math.MinInt32:
+		case si.X == math.MinInt32 && si.Y == math.MinInt32:
 			// initialize first position to establish delta
 			if x != 0 && y != 0 {
-				si.MouseX, si.MouseY = x, y
+				si.X, si.Y = x, y
 			}
 
 		default:
-			dx, dy := si.MouseX-x, si.MouseY-y
-			si.MouseX, si.MouseY = x, y
+			dx, dy := si.X-x, si.Y-y
+			si.X, si.Y = x, y
 
 			if dx != 0 {
 				p.Rotate(iregoter.RotateAngle(0.005 * float64(dx) * moveModifier))
@@ -174,7 +174,7 @@ func (p *Player) handleInput(menuActive bool, si *iregoter.MouseInfo) {
 		p.Move(iregoter.Distance(-0.06 * moveModifier))
 	}
 
-	if si.MouseMode == iregoter.MouseModeLook || si.MouseMode == iregoter.MouseModeMove {
+	if p.cfg.MouseMode == iregoter.MouseModeLook || p.cfg.MouseMode == iregoter.MouseModeMove {
 		// strafe instead of rotate
 		if rotLeft {
 			p.Strafe(iregoter.Distance(-0.05 * moveModifier))

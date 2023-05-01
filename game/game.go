@@ -33,7 +33,7 @@ type Game struct {
 	//--define camera and render scene--//
 	//camera *raycaster.Camera
 
-	mouseInfo *iregoter.MouseInfo
+	mouseInfo iregoter.MousePosition
 	cfg       iregoter.GameCfg
 }
 
@@ -41,9 +41,9 @@ type Game struct {
 // Update is called every tick (1/60 [s] by default).
 func (g *Game) Update() error {
 	// handle input (when paused making sure only to allow input for closing menu so it can be unpaused)
-	g.handleInput(*g.mouseInfo)
+	g.handleInput(g.mouseInfo)
 	if !g.paused {
-		e := iregoter.GameEventTick{ScreenSize: iregoter.ScreenSize{Width: g.cfg.ScreenWidth, Height: g.cfg.ScreenHeight}}
+		e := iregoter.GameEventTick{}
 		g.txToCore <- e
 	}
 
@@ -106,7 +106,7 @@ func NewGame() *Game {
 
 	// create crosshairs and weapon
 	model.NewCrosshairs(txToCore)
-	model.NewPlayer(txToCore, &g.cfg)
+	model.NewPlayer(txToCore)
 
 	// Todo
 	// init the sprites
@@ -119,8 +119,8 @@ func NewGame() *Game {
 	}
 
 	// init mouse look mode
-	g.mouseInfo.MouseMode = iregoter.MouseModeLook
-	g.mouseInfo.MouseX, g.mouseInfo.MouseY = math.MinInt32, math.MinInt32
+	g.cfg.MouseMode = iregoter.MouseModeLook
+	g.mouseInfo.X, g.mouseInfo.Y = math.MinInt32, math.MinInt32
 
 	// init menu system
 	g.menu = createMenu(g)
@@ -178,7 +178,9 @@ func (g *Game) initConfig() {
 
 	// get config values
 	g.cfg.ScreenWidth = viper.GetInt("screen.width")
+	g.cfg.Width = g.cfg.ScreenWidth
 	g.cfg.ScreenHeight = viper.GetInt("screen.height")
+	g.cfg.Height = g.cfg.ScreenHeight
 	g.cfg.FovDegrees = viper.GetFloat64("screen.fovDegrees")
 	g.cfg.RenderScale = viper.GetFloat64("screen.renderScale")
 	g.cfg.Fullscreen = viper.GetBool("screen.fullscreen")
@@ -214,7 +216,7 @@ func (g *Game) SaveConfig() error {
 	return err
 }
 
-func (g *Game) handleInput(si iregoter.MouseInfo) bool {
+func (g *Game) handleInput(si iregoter.MousePosition) bool {
 
 	menuKeyPressed := inpututil.IsKeyJustPressed(ebiten.KeyEscape) || inpututil.IsKeyJustPressed(ebiten.KeyF1)
 	if menuKeyPressed {
@@ -223,6 +225,8 @@ func (g *Game) handleInput(si iregoter.MouseInfo) bool {
 				// do not allow Esc key close menu in browser, since Esc key releases browser mouse capture
 			} else {
 				g.closeMenu()
+				e := iregoter.GameEventCfgChanged{Cfg: g.cfg}
+				g.txToCore <- e
 			}
 		} else {
 			g.openMenu()

@@ -10,8 +10,6 @@ type ID int
 
 type ImgLayer int
 
-type ChanRegoterUpdate chan<- RegoterUpdatedImg
-
 const (
 	ImgLayerSprite ImgLayer = iota
 	ImgLayerPlayer
@@ -26,16 +24,7 @@ const (
 	RegoterEnumEffect
 )
 
-type RgPosition struct {
-	X int
-	Y int
-}
-
-type ICore interface {
-}
-
 type GameEventTick struct {
-	ScreenSize ScreenSize
 }
 
 type GameEventDraw struct {
@@ -48,16 +37,15 @@ type CoreEventDrawDone struct {
 type ICoreEvent interface {
 }
 
-type ScreenSize struct {
-	Width  int
-	Height int
-}
+// type ScreenSize struct {
+// 	Width  int
+// 	Height int
+// }
 
 type CoreEventUpdateTick struct {
-	RgEntity     *Entity
-	PlayEntiry   *Entity
-	HasCollision bool
-	ScreenSize   ScreenSize
+	RgEntity   Entity
+	PlayEntiry Entity
+	RgState    RegoterState
 }
 
 type IRegoterEvent interface {
@@ -65,47 +53,30 @@ type IRegoterEvent interface {
 
 type RegoterEventNewRegoter struct {
 	Msgbox chan<- ICoreEvent
-	RgId   ID
-	RgType RegoterEnum
-	Entity *Entity
+	RgData RegoterData
 }
 
-type RegoterEventRegoterDeleted struct {
+type RegoterEventRegoterUnregister struct {
 	RgId ID
 }
 
-type RegoterUpdatedImg struct {
-	ImgLayer ImgLayer
-	ImgOp    *ebiten.DrawImageOptions
-	Img      *ebiten.Image
-	Sprite   *Sprite
-	Changed  bool
-	Visiable bool
-	Deleted  bool
+// type RegoterUpdatedImg struct {
+// 	ImgLayer ImgLayer
+// 	ImgOp    *ebiten.DrawImageOptions
+// 	Img      *ebiten.Image
+// 	Sprite   *Sprite
+// 	Changed  bool
+// 	Visiable bool
+// 	Deleted  bool
+// }
+
+type RegoterUpdatedConfig struct {
 }
 
-type RegoterUpdatedPlayerImg struct {
-	ImgOp *ebiten.DrawImageOptions
-	Img   *ebiten.Image
-}
-
-type RegoterUpdatedMenuImg struct {
-}
-
-type RegoterEventUpdatedImg struct {
-	RgId ID
-	Info RegoterUpdatedImg
-}
-
-type RegoterEventUpdatedPlayerImg struct {
-	Info RegoterUpdatedPlayerImg
-}
-
-type RegoterEventUpdatedMenuImg struct {
-}
-
-type RegoterUpdatedMove struct {
-}
+// type RegoterEventUpdatedImg struct {
+// 	RgId ID
+// 	Info RegoterUpdatedImg
+// }
 
 type RotateAngle float64
 type Distance float64
@@ -137,15 +108,19 @@ const (
 	MouseModeCursor
 )
 
-type MouseInfo struct {
-	MouseMode MouseMode
+type MousePosition struct {
 	// Mouse
-	MouseX int
-	MouseY int
+	X int
+	Y int
+}
+
+type GameEventCfgChanged struct {
+	Cfg GameCfg
 }
 
 type GameCfg struct {
-	OsType OsType
+	OsType    OsType
+	MouseMode MouseMode
 	// window resolution and scaling
 	ScreenWidth  int
 	ScreenHeight int
@@ -171,4 +146,34 @@ type GameCfg struct {
 	// Debug option
 	ShowSpriteBoxes bool
 	Debug           bool
+}
+
+type CoreRxMsgbox <-chan IRegoterEvent
+type CoreTxMsgbox chan<- ICoreEvent
+
+type RgRxMsgbox <-chan ICoreEvent
+type RgTxMsgbox chan<- IRegoterEvent
+
+type RegoterState struct {
+	Unregistered bool
+	HasCollision bool
+	HitHarm      int
+}
+
+type DrawInfo struct {
+	ImgLayer      ImgLayer
+	Img           *ebiten.Image
+	Columns       int
+	Rows          int
+	SpriteIndex   int
+	AnimationRate int
+	HitIndex      int //Frame index when Sprite is hit
+	Illumination  float64
+}
+
+type RegoterData struct {
+	RgId     ID
+	RgType   RegoterEnum
+	Entity   Entity
+	DrawInfo DrawInfo
 }

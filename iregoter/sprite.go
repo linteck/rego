@@ -15,7 +15,7 @@ import (
 )
 
 type Sprite struct {
-	*Entity
+	Entity         *Entity
 	W, H           int
 	AnimationRate  int
 	Focusable      bool
@@ -64,22 +64,9 @@ func (s *Sprite) IsFocusable() bool {
 	return s.Focusable
 }
 
-func NewSprite(
-	x, y, scale float64, img *ebiten.Image, mapColor color.RGBA,
-	anchor raycaster.SpriteAnchor, collisionRadius, collisionHeight float64,
-) *Sprite {
+func NewSprite(entity *Entity, img *ebiten.Image) *Sprite {
 	s := &Sprite{
-		Entity: &Entity{
-			Position:        &geom.Vector2{X: x, Y: y},
-			PositionZ:       0,
-			Scale:           scale,
-			Anchor:          anchor,
-			Angle:           0,
-			Velocity:        0,
-			CollisionRadius: collisionRadius,
-			CollisionHeight: collisionHeight,
-			MapColor:        mapColor,
-		},
+		Entity:    entity,
 		Focusable: true,
 	}
 
@@ -95,26 +82,18 @@ func NewSprite(
 	return s
 }
 
-func NewSpriteFromSheet(
-	x, y, scale float64, img *ebiten.Image, mapColor color.RGBA,
-	columns, rows, spriteIndex int, anchor raycaster.SpriteAnchor, collisionRadius, collisionHeight float64,
-) *Sprite {
+func NewSpriteFromSheet(entity *Entity, img *ebiten.Image, columns, rows, spriteIndex int) *Sprite {
+	s := NewBaseSprite(entity, img, columns, rows)
+	s.texNum = spriteIndex
+	return s
+}
+
+func NewBaseSprite(entity *Entity, img *ebiten.Image, columns, rows int) *Sprite {
 	s := &Sprite{
-		Entity: &Entity{
-			Position:        &geom.Vector2{X: x, Y: y},
-			PositionZ:       0,
-			Scale:           scale,
-			Anchor:          anchor,
-			Angle:           0,
-			Velocity:        0,
-			CollisionRadius: collisionRadius,
-			CollisionHeight: collisionHeight,
-			MapColor:        mapColor,
-		},
+		Entity:    entity,
 		Focusable: true,
 	}
 
-	s.texNum = spriteIndex
 	s.columns, s.rows = columns, rows
 	s.lenTex = columns * rows
 	s.textures = make([]*ebiten.Image, s.lenTex)
@@ -142,54 +121,12 @@ func NewSpriteFromSheet(
 	return s
 }
 
-func NewAnimatedSprite(
-	x, y, scale float64, animationRate int, img *ebiten.Image, mapColor color.RGBA,
-	columns, rows int, anchor raycaster.SpriteAnchor, collisionRadius, collisionHeight float64,
-) *Sprite {
-	s := &Sprite{
-		Entity: &Entity{
-			Position:        &geom.Vector2{X: x, Y: y},
-			PositionZ:       0,
-			Scale:           scale,
-			Anchor:          anchor,
-			Angle:           0,
-			Velocity:        0,
-			CollisionRadius: collisionRadius,
-			CollisionHeight: collisionHeight,
-			MapColor:        mapColor,
-		},
-		Focusable: true,
-	}
-
+func NewAnimatedSprite(entity *Entity, img *ebiten.Image, columns, rows, animationRate int) *Sprite {
+	s := NewBaseSprite(entity, img, columns, rows)
 	s.AnimationRate = animationRate
 	s.animCounter = 0
 	s.loopCounter = 0
-
 	s.texNum = 0
-	s.columns, s.rows = columns, rows
-	s.lenTex = columns * rows
-	s.textures = make([]*ebiten.Image, s.lenTex)
-	s.texRects = make([]image.Rectangle, s.lenTex)
-
-	w, h := img.Size()
-
-	// crop sheet by given number of columns and rows into a single dimension array
-	s.W = w / columns
-	s.H = h / rows
-
-	for r := 0; r < rows; r++ {
-		y := r * s.H
-		for c := 0; c < columns; c++ {
-			x := c * s.W
-			cellRect := image.Rect(x, y, x+s.W, y+s.H)
-			cellImg := img.SubImage(cellRect).(*ebiten.Image)
-
-			index := c + r*columns
-			s.textures[index] = cellImg
-			s.texRects[index] = cellRect
-		}
-	}
-
 	return s
 }
 
@@ -261,8 +198,8 @@ func (s *Sprite) Update(camPos *geom.Vector2) {
 			texRow := 0
 
 			// calculate angle from sprite relative to camera position by getting angle of line between them
-			lineToCam := geom.Line{X1: s.Position.X, Y1: s.Position.Y, X2: camPos.X, Y2: camPos.Y}
-			facingAngle := lineToCam.Angle() - float64(s.Angle)
+			lineToCam := geom.Line{X1: s.Entity.Position.X, Y1: s.Entity.Position.Y, X2: camPos.X, Y2: camPos.Y}
+			facingAngle := lineToCam.Angle() - float64(s.Entity.Angle)
 			if facingAngle < 0 {
 				// convert to positive angle needed to determine facing index to use
 				facingAngle += geom.Pi2
@@ -300,7 +237,7 @@ func (s *Sprite) AddDebugLines(lineWidth int, clr color.Color) {
 	lW := float64(lineWidth)
 	sW := float64(s.W)
 	sH := float64(s.H)
-	sCr := s.CollisionRadius * sW
+	sCr := s.Entity.CollisionRadius * sW
 
 	for i, img := range s.textures {
 		imgRect := s.texRects[i]
@@ -317,9 +254,17 @@ func (s *Sprite) AddDebugLines(lineWidth int, clr color.Color) {
 		ebitenutil.DrawRect(img, x, y+sH/2-lW/2-1, sW, lW, clr)
 
 		// collision markers
-		if s.CollisionRadius > 0 {
+		if s.Entity.CollisionRadius > 0 {
 			ebitenutil.DrawRect(img, x+sW/2-sCr-lW/2-1, y, lW, sH, color.White)
 			ebitenutil.DrawRect(img, x+sW/2+sCr-lW/2-1, y, lW, sH, color.White)
 		}
 	}
+}
+
+func (s *Sprite) Pos() *geom.Vector2 {
+	return s.Entity.Pos()
+}
+
+func (s *Sprite) PosZ() float64 {
+	return s.Entity.PosZ()
 }

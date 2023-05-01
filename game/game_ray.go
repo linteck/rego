@@ -48,7 +48,7 @@ func drawSpriteIndicator(screen *ebiten.Image, sprite *iregoter.Sprite) {
 
 // 			xCheck := vLine.X2
 // 			yCheck := vLine.Y2
-// 			zCheck := s.PositionZ
+// 			zCheck := s.Position.Z
 
 // 			newPos, isCollision, _ := g.getValidMove(s.Entity, xCheck, yCheck, zCheck, false)
 // 			if isCollision {

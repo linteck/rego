@@ -4,7 +4,6 @@ import (
 	"image/color"
 	"lintech/rego/game/loader"
 	"lintech/rego/iregoter"
-	"lintech/rego/regoter"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/harbdog/raycaster-go/geom"
@@ -25,7 +24,10 @@ func loadResource() *resourcePlayer {
 }
 
 type Player struct {
-	*iregoter.Entity
+	rgData iregoter.RegoterData
+	cfg    iregoter.GameCfg
+
+	health     int
 	CameraZ    float64
 	Moved      bool
 	Weapon     *Weapon
@@ -33,41 +35,55 @@ type Player struct {
 	LastWeapon *Weapon
 
 	// Movement in this tick
-	cfg      *iregoter.GameCfg
 	movement *iregoter.RegoterMove
+}
+
+func NewPlayer(coreMsgbox chan<- iregoter.IRegoterEvent) *Regoter[*Player] {
+	loadCrosshairsResource()
+	id := RgIdGenerator.GenId()
+	entity := iregoter.Entity{
+		Position:        iregoter.Position{X: 8.5, Y: 3.5, Z: 0},
+		Scale:           1,
+		Angle:           60.0,
+		Pitch:           0,
+		Velocity:        0,
+		MapColor:        color.RGBA{255, 0, 0, 255},
+		CollisionRadius: loader.ClipDistance,
+		CollisionHeight: 0.5,
+		Collidable:      true}
+
+	// di := iregoter.DrawInfo{
+	// 	ImgLayer:    iregoter.ImgLayerSprite,
+	// 	Img:         crosshairsResource.texture,
+	// 	Columns:     8,
+	// 	Rows:        8,
+	// 	SpriteIndex: 55,
+	// 	HitIndex:    57,
+	// }
+	t := &Player{
+		rgData: iregoter.RegoterData{
+			RgId:   id,
+			Entity: entity,
+		},
+		health:    fullHealth,
+		CameraZ:   0.5,
+		Moved:     false,
+		WeaponSet: NewWeapons(),
+	}
+	t.SelectWeapon(0)
+	t.rgData.DrawInfo = t.Weapon.di
+	if t.rgData.DrawInfo.Img == nil {
+		logger.Fatal("Invalid nil Img for NewPlayer()")
+	}
+
+	r := NewRegoter(coreMsgbox, t)
+	return r
 }
 
 type playerSheet struct {
 	x, y  float64
 	angle iregoter.RotateAngle
 	pitch iregoter.PitchAngle
-}
-
-func NewPlayer(coreMsgbox chan<- iregoter.IRegoterEvent, cfg *iregoter.GameCfg) *regoter.Regoter[*Player] {
-	// init player model
-	angleDegrees := 60.0
-
-	s := playerSheet{8.5, 3.5, iregoter.RotateAngle(geom.Radians(angleDegrees)), 0}
-	p := &Player{
-		Entity: &iregoter.Entity{
-			Position:  &geom.Vector2{X: s.x, Y: s.y},
-			PositionZ: 0,
-			Angle:     s.angle,
-			Pitch:     s.pitch,
-			Velocity:  0,
-			MapColor:  color.RGBA{255, 0, 0, 255},
-		},
-		CameraZ:   0.5,
-		Moved:     false,
-		WeaponSet: []*Weapon{},
-		cfg:       cfg,
-	}
-
-	p.Entity.CollisionRadius = loader.ClipDistance
-	p.Entity.CollisionHeight = 0.5
-
-	r := regoter.NewRegoter(coreMsgbox, p)
-	return r
 }
 
 func (p *Player) AddWeapon(w *Weapon) {
@@ -135,22 +151,22 @@ func (p *Player) getSelectedWeapon() (*Weapon, int) {
 	return p.Weapon, p.getWeaponIndex(p.Weapon)
 }
 
-func (p *Player) Update(cu iregoter.ChanRegoterUpdate, rgEntity *iregoter.Entity,
-	playentity *iregoter.Entity, HasCollision bool, screenSize iregoter.ScreenSize) {
+func (p *Player) Update(cu iregoter.RgTxMsgbox, rgEntity iregoter.Entity,
+	playentity iregoter.Entity, rgState iregoter.RegoterState) {
 
 	// draw crosshairs
 	op := &ebiten.DrawImageOptions{}
 	op.Filter = ebiten.FilterNearest
 
-	if rgEntity.Position != p.Position || rgEntity.Angle != p.Angle {
+	if rgEntity.Position != p.rgData.Entity.Position || rgEntity.Angle != p.rgData.Entity.Angle {
 		p.Moved = true
 	} else {
 		p.Moved = false
 	}
 
-	if info, ok := p.drawWeapon(screenSize); ok {
-		cu <- info
-	}
+	// if info, ok := p.drawWeapon(screenSize); ok {
+	// 	cu <- info
+	// }
 
 	// Todo
 	// if c.IsHitIndicatorActive() {
@@ -158,7 +174,6 @@ func (p *Player) Update(cu iregoter.ChanRegoterUpdate, rgEntity *iregoter.Entity
 	// 	g.crosshairs.Update()
 	// 	cu <- info
 	// }
-	close(cu)
 }
 
 // Move player by move speed in the forward/backward direction
@@ -189,28 +204,28 @@ func (p *Player) Pitch(pSpeed iregoter.PitchAngle) {
 
 func (p *Player) Stand() {
 	p.CameraZ = 0.5
-	p.Entity.PositionZ = 0
+	p.rgData.Entity.Position.Z = 0
 }
 
 func (p *Player) IsStanding() bool {
-	return p.Entity.PositionZ == 0 && p.CameraZ == 0.5
+	return p.rgData.Entity.Position.Z == 0 && p.CameraZ == 0.5
 }
 
 func (p *Player) Jump() {
 	p.CameraZ = 0.9
-	p.Entity.PositionZ = 0.4
+	p.rgData.Entity.Position.Z = 0.4
 	p.Moved = true
 }
 
 func (p *Player) Crouch() {
 	p.CameraZ = 0.3
-	p.Entity.PositionZ = 0
+	p.rgData.Entity.Position.Z = 0
 	p.Moved = true
 }
 
 func (p *Player) Prone() {
 	p.CameraZ = 0.1
-	p.Entity.PositionZ = 0
+	p.rgData.Entity.Position.Z = 0
 	p.Moved = true
 }
 
@@ -254,31 +269,39 @@ func (p *Player) fireWeapon() {}
 // 	}
 // }
 
-func (p *Player) drawWeapon(sz iregoter.ScreenSize) (iregoter.RegoterUpdatedImg, bool) {
-	// draw equipped weapon
-	if p.Weapon != nil {
-		w := p.Weapon
-		op := &ebiten.DrawImageOptions{}
-		op.Filter = ebiten.FilterNearest
+// func (p *Player) drawWeapon(sz iregoter.ScreenSize) (iregoter.RegoterUpdatedImg, bool) {
+// 	// draw equipped weapon
+// 	if p.Weapon != nil {
+// 		w := p.Weapon
+// 		op := &ebiten.DrawImageOptions{}
+// 		op.Filter = ebiten.FilterNearest
 
-		weaponScale := w.Scale() * p.cfg.RenderScale
-		op.GeoM.Scale(weaponScale, weaponScale)
-		op.GeoM.Translate(
-			float64(sz.Width)/2-float64(w.W)*weaponScale/2,
-			float64(sz.Height)-float64(w.H)*weaponScale+1,
-		)
+// 		weaponScale := w.Scale() * p.cfg.RenderScale
+// 		op.GeoM.Scale(weaponScale, weaponScale)
+// 		op.GeoM.Translate(
+// 			float64(sz.Width)/2-float64(w.W)*weaponScale/2,
+// 			float64(sz.Height)-float64(w.H)*weaponScale+1,
+// 		)
 
-		// Todo
-		// apply lighting setting
-		//op.ColorScale.Scale(float32(g.maxLightRGB.R)/255, float32(g.maxLightRGB.G)/255, float32(g.maxLightRGB.B)/255, 1)
+// 		// Todo
+// 		// apply lighting setting
+// 		//op.ColorScale.Scale(float32(g.maxLightRGB.R)/255, float32(g.maxLightRGB.G)/255, float32(g.maxLightRGB.B)/255, 1)
 
-		img := w.Texture()
-		changed := true
-		info := iregoter.RegoterUpdatedImg{ImgOp: op, Sprite: nil, Img: img,
-			Visiable: true, Deleted: false, Changed: changed}
-		return info, true
-	} else {
-		info := iregoter.RegoterUpdatedImg{}
-		return info, false
-	}
+// 		img := w.Texture()
+// 		changed := true
+// 		info := iregoter.RegoterUpdatedImg{ImgOp: op, Sprite: nil, Img: img,
+// 			Visiable: true, Deleted: false, Changed: changed}
+// 		return info, true
+// 	} else {
+// 		info := iregoter.RegoterUpdatedImg{}
+// 		return info, false
+// 	}
+// }
+
+func (c *Player) SetConfig(cfg iregoter.GameCfg) {
+	c.cfg = cfg
+}
+
+func (c *Player) GetData() iregoter.RegoterData {
+	return c.rgData
 }

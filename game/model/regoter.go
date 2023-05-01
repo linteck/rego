@@ -1,4 +1,4 @@
-package regoter
+package model
 
 import (
 	"bytes"
@@ -8,7 +8,6 @@ import (
 	"lintech/rego/iregoter"
 	"log"
 	"os"
-	"sync"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/examples/resources/images"
@@ -16,39 +15,17 @@ import (
 
 var logger = log.New(os.Stderr, "Regoter ", 0)
 
-type rgRxMsgbox <-chan iregoter.ICoreEvent
-type rgTxMsgbox chan<- iregoter.IRegoterEvent
-
 type IThing interface {
-	Update(c iregoter.ChanRegoterUpdate, rgEntity *iregoter.Entity,
-		playEntiry *iregoter.Entity, HasCollision bool, screenSize iregoter.ScreenSize)
+	GetData() iregoter.RegoterData
+	Update(c iregoter.RgTxMsgbox, rgEntity iregoter.Entity,
+		playEntiry iregoter.Entity, state iregoter.RegoterState)
+	SetConfig(cfg iregoter.GameCfg)
 }
 
 type Regoter[T IThing] struct {
-	id     iregoter.ID
-	rxBox  rgRxMsgbox
-	txChan rgTxMsgbox
+	rxBox  iregoter.RgRxMsgbox
+	txChan iregoter.RgTxMsgbox
 	thing  T
-}
-
-type idGenerator struct {
-	id iregoter.ID
-	mu sync.Mutex
-}
-
-var idg = idGenerator{id: 0}
-
-func (g *idGenerator) genId() iregoter.ID {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	g.id += 1
-	return g.id
-}
-
-func (g *idGenerator) currentId() iregoter.ID {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	return g.id
 }
 
 func (r *Regoter[T]) process(e iregoter.ICoreEvent) error {
@@ -56,6 +33,8 @@ func (r *Regoter[T]) process(e iregoter.ICoreEvent) error {
 	switch e.(type) {
 	case iregoter.CoreEventUpdateTick:
 		r.eventHandleUpdate(e.(iregoter.CoreEventUpdateTick))
+	case iregoter.GameEventCfgChanged:
+		r.eventHandleCfgChanged(e.(iregoter.GameEventCfgChanged))
 	default:
 		r.eventHandleUnknown(e)
 	}
@@ -65,14 +44,12 @@ func (r *Regoter[T]) process(e iregoter.ICoreEvent) error {
 // Update the position and status of Regoter
 // And send new Position and status to IGame
 func (r *Regoter[T]) eventHandleUpdate(e iregoter.CoreEventUpdateTick) error {
-	c := make(chan iregoter.RegoterUpdatedImg)
-	go r.thing.Update(c, e.RgEntity, e.PlayEntiry, e.HasCollision, e.ScreenSize)
-	for info := range c {
-		if info.Visiable {
-			u := iregoter.RegoterEventUpdatedImg{RgId: r.id, Info: info}
-			r.txChan <- u
-		}
-	}
+	r.thing.Update(r.txChan, e.RgEntity, e.PlayEntiry, e.RgState)
+	return nil
+}
+
+func (r *Regoter[T]) eventHandleCfgChanged(e iregoter.GameEventCfgChanged) error {
+	r.thing.SetConfig(e.Cfg)
 	return nil
 }
 
@@ -92,7 +69,6 @@ func (r *Regoter[T]) Run() {
 }
 
 func NewRegoter[T IThing](coreMsgbox chan<- iregoter.IRegoterEvent, t T) *Regoter[T] {
-	id := idg.genId()
 	// NOTE:  If there are about 10,000 Regoters,
 	// 			  this Core routine may not able to recv msg quick enough.
 	//			 	So Regoter will block on sending data to Core and can not receive data.
@@ -101,9 +77,10 @@ func NewRegoter[T IThing](coreMsgbox chan<- iregoter.IRegoterEvent, t T) *Regote
 	// 			  So we set Regoter chan buffer size to 100 and keep Core buffer size at 1.
 	//				So Core will not be blocked on Sending. And Regoter need wait Core.
 	c := make(chan iregoter.ICoreEvent, 10)
-	r := &Regoter[T]{id, c, coreMsgbox, t}
+	r := &Regoter[T]{c, coreMsgbox, t}
 	go func() {
-		e := iregoter.RegoterEventNewRegoter{RgId: r.id, Msgbox: c}
+		d := t.GetData()
+		e := iregoter.RegoterEventNewRegoter{Msgbox: c, RgData: d}
 		r.txChan <- e
 		r.Run()
 	}()

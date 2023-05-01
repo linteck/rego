@@ -239,7 +239,7 @@ func GetSpriteFromFile(sFile string) *ebiten.Image {
 // 	)
 // 	batty.SetTextureFacingMap(batTexFacingMap)
 // 	// raising Z-position of sprite model but using raycaster.AnchorTop to show below that position
-// 	batty.PositionZ = 1.0
+// 	batty.Position.Z = 1.0
 // 	// give sprite a sample velocity for movement
 // 	batty.Angle = geom.Radians(150)
 // 	batty.Velocity = 0.03

@@ -27,7 +27,7 @@ func (g *Core) miniMap() *image.RGBA {
 	sl := g.rgs[iregoter.RegoterEnumSprite]
 	sprites := make([]*iregoter.Entity, 0, sl.Len())
 	sl.ForEach(func(_ iregoter.ID, s regoterInCore) {
-		sprites = append(sprites, s.entity)
+		sprites = append(sprites, &s.entity)
 	})
 	sort.Slice(sprites, func(i, j int) bool {
 		iComp := (sprites[i].MapColor.R + sprites[i].MapColor.G + sprites[i].MapColor.B)
@@ -46,7 +46,7 @@ func (g *Core) miniMap() *image.RGBA {
 	pl := g.rgs[iregoter.RegoterEnumProjectile]
 	projectiles := make([]*iregoter.Entity, 0, pl.Len())
 	pl.ForEach(func(_ iregoter.ID, p regoterInCore) {
-		projectiles = append(projectiles, p.entity)
+		projectiles = append(projectiles, &p.entity)
 	})
 	sort.Slice(projectiles, func(i, j int) bool {
 		iComp := (projectiles[i].MapColor.R + projectiles[i].MapColor.G + projectiles[i].MapColor.B)
