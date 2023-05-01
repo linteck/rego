@@ -81,6 +81,7 @@ func (g *Core) eventHandleGameEventCfgChanged(e iregoter.GameEventCfgChanged) {
 		})
 	}
 	// logger.Print(fmt.Sprintf("current rg num %v", g.rgs.Len()))
+	g.applyConfig()
 }
 
 func (g *Core) eventHandleNewRegoter(e iregoter.RegoterEventNewRegoter) {
@@ -234,21 +235,24 @@ func (g *Core) removeAllUnregisteredRogeter() {
 }
 
 func (g *Core) process(e iregoter.IRegoterEvent) error {
-	//logger.Print(fmt.Sprintf(" recv %T", e))
 	switch e.(type) {
 	case iregoter.GameEventTick:
 		g.eventHandleGameEventTick(e.(iregoter.GameEventTick))
 	case iregoter.GameEventCfgChanged:
+		logger.Print(fmt.Sprintf(" recv %T", e))
 		g.eventHandleGameEventCfgChanged(e.(iregoter.GameEventCfgChanged))
 	case iregoter.GameEventDraw:
 		g.eventHandleGameEventDraw(e.(iregoter.GameEventDraw))
 	case iregoter.RegoterEventNewRegoter:
+		logger.Print(fmt.Sprintf(" recv %T", e))
 		g.eventHandleNewRegoter(e.(iregoter.RegoterEventNewRegoter))
 	case iregoter.RegoterEventRegoterUnregister:
+		logger.Print(fmt.Sprintf(" recv %T", e))
 		g.eventHandleRegoterUnregister(e.(iregoter.RegoterEventRegoterUnregister))
 	// case iregoter.RegoterEventUpdatedImg:
 	// 	g.eventHandleUpdatedImg(e.(iregoter.RegoterEventUpdatedImg))
 	case iregoter.RegoterEventUpdatedMove:
+		logger.Print(fmt.Sprintf(" recv %T", e))
 		g.eventHandleUpdatedMove(e.(iregoter.RegoterEventUpdatedMove))
 	default:
 		g.eventHandleUnknown(e)
@@ -313,8 +317,16 @@ func NewCore(cfg *iregoter.GameCfg) (chan<- iregoter.IRegoterEvent, <-chan irego
 		mapObj: mapObj, collisionMap: collisionMap,
 		mapWidth: mapWidth, mapHeight: mapHeight, camera: camera, cfg: *cfg}
 
+	core.applyConfig()
+
+	go core.Run()
+	return c, g
+}
+func (core *Core) applyConfig() {
 	//--init camera and renderer--//
 	// use scale to keep the desired window width and height
+	cfg := core.cfg
+	logger.Printf("%+v", cfg)
 	core.setResolution(cfg.ScreenWidth, cfg.ScreenHeight)
 	core.setRenderScale(cfg.RenderScale)
 	core.setFullscreen(cfg.Fullscreen)
@@ -322,11 +334,11 @@ func NewCore(cfg *iregoter.GameCfg) (chan<- iregoter.IRegoterEvent, <-chan irego
 
 	core.setRenderDistance(cfg.RenderDistance)
 
-	camera.SetFloorTexture(loader.GetTextureFromFile("floor.png"))
-	camera.SetSkyTexture(loader.GetTextureFromFile("sky.png"))
+	core.camera.SetFloorTexture(loader.GetTextureFromFile("floor.png"))
+	core.camera.SetSkyTexture(loader.GetTextureFromFile("sky.png"))
 
 	core.setFovAngle(cfg.FovDegrees)
-	core.cfg.FovDepth = camera.FovDepth()
+	core.cfg.FovDepth = core.camera.FovDepth()
 
 	core.cfg.ZoomFovDepth = 2.0
 
@@ -337,8 +349,6 @@ func NewCore(cfg *iregoter.GameCfg) (chan<- iregoter.IRegoterEvent, <-chan irego
 	maxLightRGB := color.NRGBA{R: 255, G: 255, B: 255}
 	core.setLightRGB(minLightRGB, maxLightRGB)
 
-	go core.Run()
-	return c, g
 }
 
 func (g *Core) drawScreen(screen *ebiten.Image) {
@@ -353,16 +363,18 @@ func (g *Core) drawScreen(screen *ebiten.Image) {
 		index += 1
 	})
 
+	// Debug
+	// g.camera.SetHeadingAngle(geom.Pi / 2)
+	// g.camera.SetPosition(&geom.Vector2{X: 10, Y: 10})
+	// CameraZ := 0.5
+	// g.camera.SetPositionZ(CameraZ)
+	// End of Debug
+
 	// Update camera (calculate raycast)
 	g.camera.Update(raycastSprites)
 
 	// Render raycast scene
 	g.camera.Draw(g.scene)
-
-	// pl := g.imgs[iregoter.ImgLayerPlayer]
-	// pl.ForEach(func(val iregoter.RegoterUpdatedImg) {
-	// 	g.scene.DrawImage(val.Img, val.ImgOp)
-	// })
 
 	if g.cfg.ShowSpriteBoxes {
 		// draw sprite screen indicators to show we know where it was raycasted (must occur after camera.Update)
@@ -386,12 +398,20 @@ func (g *Core) drawScreen(screen *ebiten.Image) {
 	// draw raycasted scene
 	op := &ebiten.DrawImageOptions{}
 	// Todo
-	// if g.renderScale < 1 {
-	// 	op.Filter = ebiten.FilterNearest
-	// 	op.GeoM.Scale(1/g.renderScale, 1/g.renderScale)
-	// }
+	if g.cfg.RenderScale < 1 {
+		op.Filter = ebiten.FilterNearest
+		op.GeoM.Scale(1/g.cfg.RenderScale, 1/g.cfg.RenderScale)
+	}
 	screen.DrawImage(g.scene, op)
 
+	g.drawMiniMap(screen)
+
+	// draw FPS/TPS counter debug display
+	fps := fmt.Sprintf("FPS: %f\nTPS: %f/%v", ebiten.ActualFPS(), ebiten.ActualTPS(), ebiten.TPS())
+	ebitenutil.DebugPrint(screen, fps)
+}
+
+func (g *Core) drawMiniMap(screen *ebiten.Image) {
 	// draw minimap
 	mm := g.miniMap()
 	mmImg := ebiten.NewImageFromImage(mm)
@@ -403,10 +423,6 @@ func (g *Core) drawScreen(screen *ebiten.Image) {
 		op.GeoM.Translate(0, 50)
 		screen.DrawImage(mmImg, op)
 	}
-
-	// draw FPS/TPS counter debug display
-	fps := fmt.Sprintf("FPS: %f\nTPS: %f/%v", ebiten.ActualFPS(), ebiten.ActualTPS(), ebiten.TPS())
-	ebitenutil.DebugPrint(screen, fps)
 }
 
 // Update camera to match player position and orientation
@@ -416,7 +432,7 @@ func (g *Core) updatePlayerCamera(pe *iregoter.Entity, moved bool, forceUpdate b
 		return
 	}
 
-	g.camera.SetPosition(&geom.Vector2{pe.Position.X, pe.Position.Y})
+	g.camera.SetPosition(&geom.Vector2{X: pe.Position.X, Y: pe.Position.Y})
 	CameraZ := 0.5
 	g.camera.SetPositionZ(CameraZ)
 	g.camera.SetHeadingAngle(float64(pe.Angle))
