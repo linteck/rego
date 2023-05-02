@@ -3,6 +3,7 @@ package game
 import (
 	"fmt"
 	"lintech/rego/iregoter"
+	"log"
 	"math"
 	"math/rand"
 	"os"
@@ -41,6 +42,7 @@ type Game struct {
 // Update is called every tick (1/60 [s] by default).
 func (g *Game) Update() error {
 	// handle input (when paused making sure only to allow input for closing menu so it can be unpaused)
+
 	g.handleInput(g.mouseInfo)
 	if !g.paused {
 		e := iregoter.GameEventTick{}
@@ -55,6 +57,7 @@ func (g *Game) Update() error {
 
 func (g *Game) Run() {
 	g.paused = false
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	logger.Print("Start")
 	// Debug
 	//ebiten.SetTPS(2)

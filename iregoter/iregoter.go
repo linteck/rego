@@ -175,8 +175,6 @@ type DrawInfo struct {
 }
 
 type RegoterData struct {
-	RgId     ID
-	RgType   RegoterEnum
 	Entity   Entity
 	DrawInfo DrawInfo
 }

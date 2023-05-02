@@ -43,7 +43,7 @@ func (g *Core) getValidMove(entity *iregoter.Entity,
 
 	// check sprite against player collision
 	player := g.rgs[iregoter.RegoterEnumPlayer].Iterate().Value().sprite
-	if entity != player.Entity && entity.Collidable && entity.CollisionRadius > 0 {
+	if entity.RgId != player.Entity.RgId && entity.Collidable && entity.CollisionRadius > 0 {
 		// TODO: only check for collision if player is somewhat nearby
 
 		// quick check if intersects in Z-plane
@@ -75,7 +75,7 @@ func (g *Core) getValidMove(entity *iregoter.Entity,
 		func(i iregoter.ID, r regoterInCore) {
 			sprite := r.sprite
 			// TODO: only check intersection of nearby sprites instead of all of them
-			if entity == sprite.Entity || entity.Collidable || entity.CollisionRadius <= 0 || sprite.Entity.CollisionRadius <= 0 {
+			if entity.RgId == sprite.Entity.RgId || entity.Collidable || entity.CollisionRadius <= 0 || sprite.Entity.CollisionRadius <= 0 {
 				return
 			}
 
@@ -138,7 +138,8 @@ func (g *Core) getValidMove(entity *iregoter.Entity,
 			// if either X or Y direction was already intersecting, attempt move only in the adjacent direction
 			xDiff := math.Abs(newX - posX)
 			yDiff := math.Abs(newY - posY)
-			if xDiff > 0.001 || yDiff > 0.001 {
+			// Bug? Shoulde be <0.001 ?
+			if xDiff <= 0.001 || yDiff <= 0.001 {
 				switch {
 				case xDiff <= 0.001:
 					// no more room to move in X, try to move only Y

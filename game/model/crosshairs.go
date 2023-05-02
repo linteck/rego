@@ -33,11 +33,12 @@ func loadCrosshairsResource() *resourceCrosshairs {
 
 func NewCrosshairs(coreMsgbox chan<- iregoter.IRegoterEvent) *Regoter[*Crosshairs] {
 	loadCrosshairsResource()
-	id := RgIdGenerator.GenId()
 	entity := iregoter.Entity{
-		Position:   iregoter.Position{X: 1, Y: 1, Z: 0},
+		RgId:       RgIdGenerator.GenId(),
+		RgType:     iregoter.RegoterEnumSprite,
+		Position:   iregoter.Position{X: 8, Y: 8, Z: 0},
 		Scale:      2,
-		MapColor:   color.RGBA{0, 0, 0, 0},
+		MapColor:   color.RGBA{0, 255, 0, 255},
 		Collidable: true}
 	di := iregoter.DrawInfo{
 		ImgLayer:    iregoter.ImgLayerSprite,
@@ -49,7 +50,6 @@ func NewCrosshairs(coreMsgbox chan<- iregoter.IRegoterEvent) *Regoter[*Crosshair
 	}
 	t := &Crosshairs{
 		rgData: iregoter.RegoterData{
-			RgId:     id,
 			Entity:   entity,
 			DrawInfo: di,
 		},
@@ -78,7 +78,7 @@ func (c *Crosshairs) Update(cu iregoter.RgTxMsgbox, rgEntity iregoter.Entity,
 	c.health -= rgState.HitHarm
 	if c.health <= 0 {
 		// Send Unregister to show 'Die'
-		cu <- iregoter.RegoterEventRegoterUnregister{RgId: c.rgData.RgId}
+		cu <- iregoter.RegoterEventRegoterUnregister{RgId: c.rgData.Entity.RgId}
 	}
 	// draw crosshairs
 	// op := &ebiten.DrawImageOptions{}

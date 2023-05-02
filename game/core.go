@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image/color"
 	"lintech/rego/game/loader"
+	"lintech/rego/game/model"
 	"lintech/rego/iregoter"
 	"log"
 	"math"
@@ -19,10 +20,6 @@ import (
 )
 
 var logger = log.New(os.Stdout, "Core ", 0)
-
-func DPrint(screen *ebiten.Image, msg string) {
-	ebitenutil.DebugPrint(screen, msg)
-}
 
 type regoterInCore struct {
 	tx     iregoter.CoreTxMsgbox
@@ -95,12 +92,12 @@ func (g *Core) eventHandleEventDebugPrint(e iregoter.EventDebugPrint) {
 
 func (g *Core) eventHandleNewRegoter(e iregoter.RegoterEventNewRegoter) {
 	d := e.RgData
-	rg := regoterInCore{tx: e.Msgbox, rgType: d.RgType, entity: d.Entity, di: d.DrawInfo}
+	rg := regoterInCore{tx: e.Msgbox, rgType: d.Entity.RgType, entity: d.Entity, di: d.DrawInfo}
 	if rg.di.AnimationRate != 0 && rg.di.SpriteIndex != 0 {
 		logger.Fatal("This Regoter can not be both Animation and Sheet")
 	}
 	if rg.di.Img == nil {
-		logger.Fatal("Invalid nil Img for ", d.RgType, d.RgId)
+		logger.Fatal("Invalid nil Img for ", d.Entity.RgType, d.Entity.RgId)
 	}
 	var sprite *iregoter.Sprite
 	if rg.di.AnimationRate != 0 {
@@ -114,7 +111,7 @@ func (g *Core) eventHandleNewRegoter(e iregoter.RegoterEventNewRegoter) {
 	rg.sprite = sprite
 	rg.state.Unregistered = false
 	rg.state.HasCollision = false
-	g.rgs[rg.rgType].Insert(d.RgId, rg)
+	g.rgs[rg.rgType].Insert(d.Entity.RgId, rg)
 }
 
 // func (g *Core) eventHandleUpdatedImg(e iregoter.RegoterEventUpdatedImg) {
@@ -145,40 +142,11 @@ func (g *Core) eventHandleUpdatedMove(e iregoter.RegoterEventUpdatedMove) {
 	}
 }
 
-func (g *Core) eventHandleUpdated3DMove(p *regoterInCore, e iregoter.RegoterEventUpdatedMove) {
+func (g *Core) eventHandleUpdated3DMove(p *regoterInCore, e iregoter.RegoterEventUpdatedMove) bool {
 	pe := &p.entity
+
 	mSpeed := float64(e.Move.MoveSpeed)
-	rotateSpeed := e.Move.RotateSpeed
-	mAngle := float64(pe.Angle + rotateSpeed)
-	pitchSpeed := e.Move.PitchSpeed
-
-	mAngle = simplifyAngle(mAngle)
-
-	trajectory := geom3d.Line3dFromAngle(pe.Position.X, pe.Position.Y, pe.Position.Z,
-		float64(pe.Angle+rotateSpeed), float64(pe.Pitch+pitchSpeed), pe.Velocity+mSpeed)
-	xCheck := trajectory.X2
-	yCheck := trajectory.Y2
-	zCheck := trajectory.Z2
-	newPos, isCollision, collisions := g.getValidMove(&p.entity, xCheck, yCheck, zCheck, false)
-
-	if isCollision || pe.Position.Z <= 0 {
-		// for testing purposes, projectiles instantly get deleted when collision occurs
-		// Todo ? Should I set it here?
-		p.state.HasCollision = true
-		if len(collisions) >= 1 {
-			// use the first collision point to place effect at
-			newPos = collisions[0].collision
-		}
-	}
-	pe.Position.X = newPos.X
-	pe.Position.Y = newPos.Y
-	pe.Position.Z = zCheck
-
-}
-
-func (g *Core) eventHandleUpdated2DMove(p *regoterInCore, e iregoter.RegoterEventUpdatedMove) bool {
-	pe := &p.entity
-	mSpeed := float64(e.Move.MoveSpeed)
+	velocity := pe.Velocity + mSpeed
 
 	rotateSpeed := e.Move.RotateSpeed
 	mAngle := float64(pe.Angle + rotateSpeed)
@@ -186,21 +154,91 @@ func (g *Core) eventHandleUpdated2DMove(p *regoterInCore, e iregoter.RegoterEven
 
 	pitchSpeed := e.Move.PitchSpeed
 	mPitch := float64(pe.Pitch + pitchSpeed)
+	mPitch = simplifyAngle(mPitch)
 
-	moveLine := geom.LineFromAngle(pe.Position.X, pe.Position.Y, mAngle, mSpeed)
-	newPos, collision, _ := g.getValidMove(pe, moveLine.X2, moveLine.Y2, pe.Position.Z, true)
 	moved := false
-	if newPos.X != pe.Position.X || newPos.Y != pe.Position.Y ||
-		mAngle != float64(pe.Angle) || mPitch != float64(pe.Pitch) {
+	if math.Abs(velocity) > model.MinimumVelocity {
+		trajectory := geom3d.Line3dFromAngle(pe.Position.X, pe.Position.Y, pe.Position.Z,
+			float64(mAngle), float64(mPitch), velocity)
+		xCheck := trajectory.X2
+		yCheck := trajectory.Y2
+		zCheck := trajectory.Z2
+		newPos, isCollision, collisions := g.getValidMove(&p.entity, xCheck, yCheck, zCheck, false)
 
-		pe.Position.X = newPos.X
-		pe.Position.Y = newPos.Y
+		if isCollision && len(collisions) >= 1 {
+			// for testing purposes, projectiles instantly get deleted when collision occurs
+			// use the first collision point to place effect at
+			// Bug: Why?
+			newPos = collisions[0].collision
+		}
+		if pe.Position.Z < 0 {
+			// Hit ground
+			isCollision = true
+		}
+
+		p.state.HasCollision = isCollision
+
+		if newPos.X != pe.Position.X || newPos.Y != pe.Position.Y || zCheck != pe.Position.Z {
+			pe.Position.X = newPos.X
+			pe.Position.Y = newPos.Y
+			pe.Position.Z = zCheck
+			moved = true
+		}
+	}
+
+	if mAngle != float64(pe.Angle) || mPitch != float64(pe.Pitch) || velocity != pe.Velocity {
 		pe.Angle = iregoter.RotateAngle(mAngle)
 		pe.Pitch = iregoter.PitchAngle(geom.Clamp(mPitch, -math.Pi/8, math.Pi/4))
+		pe.Velocity = limitVelocity(velocity, model.MaximumVelocity)
 		moved = true
 	}
-	p.state.HasCollision = collision
+
 	return moved
+}
+
+func (g *Core) eventHandleUpdated2DMove(p *regoterInCore, e iregoter.RegoterEventUpdatedMove) bool {
+	pe := &p.entity
+	mSpeed := float64(e.Move.MoveSpeed)
+	velocity := pe.Velocity + mSpeed
+
+	rotateSpeed := e.Move.RotateSpeed
+	mAngle := float64(pe.Angle + rotateSpeed)
+	mAngle = simplifyAngle(mAngle)
+
+	pitchSpeed := e.Move.PitchSpeed
+	mPitch := float64(pe.Pitch + pitchSpeed)
+	mPitch = simplifyAngle(mPitch)
+
+	moved := false
+	if math.Abs(velocity) > model.MinimumVelocity {
+		moveLine := geom.LineFromAngle(pe.Position.X, pe.Position.Y, float64(pe.Angle), velocity)
+
+		newPos, collision, _ := g.getValidMove(pe, moveLine.X2, moveLine.Y2, pe.Position.Z, true)
+		p.state.HasCollision = collision
+
+		if newPos.X != pe.Position.X || newPos.Y != pe.Position.Y {
+			moved = true
+			pe.Position.X = newPos.X
+			pe.Position.Y = newPos.Y
+		}
+	}
+	if mAngle != float64(pe.Angle) || mPitch != float64(pe.Pitch) || velocity != pe.Velocity {
+		pe.Angle = iregoter.RotateAngle(mAngle)
+		pe.Pitch = iregoter.PitchAngle(geom.Clamp(mPitch, -math.Pi/8, math.Pi/4))
+		pe.Velocity = limitVelocity(velocity, model.MaximumVelocity)
+		moved = true
+	}
+	return moved
+}
+
+func limitVelocity(velocity float64, max float64) float64 {
+	if velocity > max {
+		return max
+	}
+	if velocity < -max {
+		return -max
+	}
+	return velocity
 }
 
 func (g *Core) eventHandleRegoterUnregister(e iregoter.RegoterEventRegoterUnregister) {
@@ -254,20 +292,16 @@ func (g *Core) process(e iregoter.IRegoterEvent) error {
 	case iregoter.GameEventTick:
 		g.eventHandleGameEventTick(e.(iregoter.GameEventTick))
 	case iregoter.GameEventCfgChanged:
-		logger.Print(fmt.Sprintf(" recv %T", e))
 		g.eventHandleGameEventCfgChanged(e.(iregoter.GameEventCfgChanged))
 	case iregoter.GameEventDraw:
 		g.eventHandleGameEventDraw(e.(iregoter.GameEventDraw))
 	case iregoter.RegoterEventNewRegoter:
-		logger.Print(fmt.Sprintf(" recv %T", e))
 		g.eventHandleNewRegoter(e.(iregoter.RegoterEventNewRegoter))
 	case iregoter.RegoterEventRegoterUnregister:
-		logger.Print(fmt.Sprintf(" recv %T", e))
 		g.eventHandleRegoterUnregister(e.(iregoter.RegoterEventRegoterUnregister))
 	// case iregoter.RegoterEventUpdatedImg:
 	// 	g.eventHandleUpdatedImg(e.(iregoter.RegoterEventUpdatedImg))
 	case iregoter.RegoterEventUpdatedMove:
-		logger.Print(fmt.Sprintf(" recv %T", e))
 		g.eventHandleUpdatedMove(e.(iregoter.RegoterEventUpdatedMove))
 	default:
 		g.eventHandleUnknown(e)
@@ -520,9 +554,9 @@ func (g *Core) setRenderFloorTexture(r bool) {
 }
 
 func simplifyAngle(angle float64) float64 {
-	if angle >= geom.Pi2 {
+	if angle > geom.Pi {
 		angle = angle - geom.Pi2
-	} else if angle <= 0.0 {
+	} else if angle <= -geom.Pi {
 		angle = angle + geom.Pi2
 	}
 	return angle

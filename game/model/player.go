@@ -5,9 +5,15 @@ import (
 	"image/color"
 	"lintech/rego/game/loader"
 	"lintech/rego/iregoter"
+	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/harbdog/raycaster-go/geom"
+)
+
+const (
+	MinimumVelocity = 1e-3
+	MaximumVelocity = 1e-1
 )
 
 type resourcePlayer struct {
@@ -42,8 +48,9 @@ type Player struct {
 
 func NewPlayer(coreMsgbox chan<- iregoter.IRegoterEvent) *Regoter[*Player] {
 	loadCrosshairsResource()
-	id := RgIdGenerator.GenId()
 	entity := iregoter.Entity{
+		RgId:            RgIdGenerator.GenId(),
+		RgType:          iregoter.RegoterEnumPlayer,
 		Position:        iregoter.Position{X: 8.5, Y: 3.5, Z: 0},
 		Scale:           1,
 		Angle:           iregoter.RotateAngle(geom.Radians(60.0)),
@@ -64,8 +71,6 @@ func NewPlayer(coreMsgbox chan<- iregoter.IRegoterEvent) *Regoter[*Player] {
 	// }
 	t := &Player{
 		rgData: iregoter.RegoterData{
-			RgId:   id,
-			RgType: iregoter.RegoterEnumPlayer,
 			Entity: entity,
 		},
 		health:    fullHealth,
@@ -157,13 +162,26 @@ func (p *Player) getSelectedWeapon() (*Weapon, int) {
 func (p *Player) Update(cu iregoter.RgTxMsgbox, rgEntity iregoter.Entity,
 	playentity iregoter.Entity, rgState iregoter.RegoterState) {
 
+	// Debug
+	p.rgData.Entity = rgEntity
 	p.movement = iregoter.RegoterMove{}
 	p.handleInput(false, &p.mouse)
 	// draw crosshairs
 	op := &ebiten.DrawImageOptions{}
 	op.Filter = ebiten.FilterNearest
 
-	if rgEntity.Position != p.rgData.Entity.Position || rgEntity.Angle != p.rgData.Entity.Angle {
+	// Slow down Velocity
+	if math.Abs(float64(p.movement.MoveSpeed)) < MinimumVelocity {
+		if math.Abs(float64(p.rgData.Entity.Velocity)) > MinimumVelocity {
+			p.movement.MoveSpeed = iregoter.Distance(-p.rgData.Entity.Velocity * 0.1)
+		}
+	}
+
+	if rgEntity.Position.X != p.rgData.Entity.Position.X ||
+		rgEntity.Position.Y != p.rgData.Entity.Position.Y ||
+		rgEntity.Pitch != p.rgData.Entity.Pitch ||
+		rgEntity.Angle != p.rgData.Entity.Angle {
+
 		p.Moved = true
 	} else {
 		p.Moved = false
@@ -172,7 +190,7 @@ func (p *Player) Update(cu iregoter.RgTxMsgbox, rgEntity iregoter.Entity,
 	de := iregoter.EventDebugPrint{DebugString: fmt.Sprintf("%+v", p.movement)}
 	cu <- de
 
-	e := iregoter.RegoterEventUpdatedMove{RgId: p.rgData.RgId, Move: p.movement}
+	e := iregoter.RegoterEventUpdatedMove{RgId: p.rgData.Entity.RgId, Move: p.movement}
 	cu <- e
 	// if info, ok := p.drawWeapon(screenSize); ok {
 	// 	cu <- info
