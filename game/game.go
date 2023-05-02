@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"lintech/rego/game/loader"
 	"lintech/rego/game/model"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -18,12 +19,12 @@ import (
 	"github.com/spf13/viper"
 )
 
-type gameTxMsgbox chan<- iregoter.IRegoterEvent
-type gameRxMsgbox <-chan iregoter.ICoreEvent
+// type gameTxMsgbox chan<- iregoter.IRegoterEvent
+// type gameRxMsgbox <-chan iregoter.ICoreEvent
 
 type Game struct {
-	txToCore   gameTxMsgbox
-	rxFromCore gameRxMsgbox
+	txToCore   iregoter.RgTxMsgbox
+	rxFromCore iregoter.RgRxMsgbox
 
 	// Raycaster
 	menu   *DemoMenu
@@ -87,6 +88,33 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 	return int(w), int(h)
 }
 
+func NewSorcerer(txToCore iregoter.RgTxMsgbox) {
+	sorcImg := loader.GetSpriteFromFile("sorcerer_sheet.png")
+	sorcWidth, sorcHeight := sorcImg.Bounds().Dx(), sorcImg.Bounds().Dy()
+	sorcCols, sorcRows := 10, 1
+	sorcScale := 1.25
+	sorcVelocity := 0.02
+	// in pixels, radius and height to use for collision testing
+	sorcPxRadius, sorcPxHeight := 40.0, 120.0
+	model.NewEnemy(txToCore,
+		iregoter.Position{X: 2, Y: 2, Z: 0},
+		iregoter.DrawInfo{
+			Img:           sorcImg,
+			ImgLayer:      iregoter.ImgLayerSprite,
+			Columns:       sorcCols,
+			Rows:          sorcRows,
+			AnimationRate: 5,
+		},
+		sorcScale,
+		iregoter.CollisionSpace{
+			CollisionRadius: (sorcScale * sorcPxRadius) / (float64(sorcWidth) / float64(sorcCols)),
+			CollisionHeight: (sorcScale * sorcPxHeight) / (float64(sorcHeight) / float64(sorcRows)),
+		},
+		sorcVelocity,
+	)
+
+}
+
 // NewGame - Allows the game to perform any initialization it needs to before starting to run.
 // This is where it can query for any required services and load any non-graphic
 // related content.  Calling base.Initialize will enumerate through any components
@@ -112,6 +140,7 @@ func NewGame() *Game {
 	// create crosshairs and weapon
 	model.NewCrosshairs(txToCore)
 	model.NewPlayer(txToCore)
+	NewSorcerer(txToCore)
 
 	// Todo
 	// init the sprites
@@ -193,7 +222,9 @@ func (g *Game) initConfig() {
 	g.cfg.RenderDistance = viper.GetFloat64("screen.renderDistance")
 	g.cfg.RenderFloorTex = viper.GetBool("screen.renderFloor")
 	g.cfg.ShowSpriteBoxes = viper.GetBool("showSpriteBoxes")
+	g.cfg.ShowSpriteBoxes = true
 	g.cfg.Debug = viper.GetBool("debug")
+	g.cfg.Debug = true
 }
 
 func (g *Game) SaveConfig() error {

@@ -15,20 +15,6 @@ const (
 	MaximumVelocity = 1e-1
 )
 
-type resourcePlayer struct {
-	texture *ebiten.Image
-}
-
-var playerResource *resourcePlayer
-
-func loadResource() *resourcePlayer {
-	if playerResource == nil {
-		texture := loader.GetSpriteFromFile("crosshairs_sheet.png")
-		playerResource = &resourcePlayer{texture: texture}
-	}
-	return playerResource
-}
-
 type Player struct {
 	rgData iregoter.RegoterData
 	cfg    iregoter.GameCfg
@@ -46,7 +32,6 @@ type Player struct {
 }
 
 func NewPlayer(coreMsgbox chan<- iregoter.IRegoterEvent) *Regoter[*Player] {
-	loadCrosshairsResource()
 	entity := iregoter.Entity{
 		RgId:            RgIdGenerator.GenId(),
 		RgType:          iregoter.RegoterEnumPlayer,

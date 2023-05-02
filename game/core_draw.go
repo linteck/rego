@@ -37,13 +37,6 @@ func (g *Core) drawScreen(screen *ebiten.Image) {
 		index += 1
 	})
 
-	// Debug
-	// g.camera.SetHeadingAngle(geom.Pi / 2)
-	// g.camera.SetPosition(&geom.Vector2{X: 10, Y: 10})
-	// CameraZ := 0.5
-	// g.camera.SetPositionZ(CameraZ)
-	// End of Debug
-
 	// Update camera (calculate raycast)
 	g.camera.Update(raycastSprites)
 
@@ -84,6 +77,25 @@ func (g *Core) drawScreen(screen *ebiten.Image) {
 	g.drawMiniMap(screen)
 
 	// draw crosshairs
+	g.drawCrosshairs(screen)
+
+	// draw DebugInfo
+	g.drawDebugInfo(screen)
+
+}
+
+func (g *Core) drawDebugInfo(screen *ebiten.Image) {
+	// draw FPS/TPS counter debug display
+	dbgMsg := fmt.Sprintf("FPS: %.1f\nTPS: %.1f/%v\n", ebiten.ActualFPS(), ebiten.ActualTPS(), ebiten.TPS())
+	//ebitenutil.DebugPrint(screen, fps)
+	g.debugMessages.ForEach(func(val string) {
+		dbgMsg += (val + "\n")
+	})
+	g.debugMessages.Clear()
+	ebitenutil.DebugPrint(screen, dbgMsg)
+}
+
+func (g *Core) drawCrosshairs(screen *ebiten.Image) {
 	cl := g.rgs[iregoter.RegoterEnumCrosshair]
 	cl.ForEach(func(i iregoter.ID, r regoterInCore) {
 		op := &ebiten.DrawImageOptions{}
@@ -101,21 +113,6 @@ func (g *Core) drawScreen(screen *ebiten.Image) {
 		// 	g.crosshairs.Update()
 		// }
 	})
-
-	// draw DebugInfo
-	g.drawDebugInfo(screen)
-
-}
-
-func (g *Core) drawDebugInfo(screen *ebiten.Image) {
-	// draw FPS/TPS counter debug display
-	dbgMsg := fmt.Sprintf("FPS: %.1f\nTPS: %.1f/%v\n", ebiten.ActualFPS(), ebiten.ActualTPS(), ebiten.TPS())
-	//ebitenutil.DebugPrint(screen, fps)
-	g.debugMessages.ForEach(func(val string) {
-		dbgMsg += (val + "\n")
-	})
-	g.debugMessages.Clear()
-	ebitenutil.DebugPrint(screen, dbgMsg)
 }
 
 func (g *Core) drawMiniMap(screen *ebiten.Image) {

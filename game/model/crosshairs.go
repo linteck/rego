@@ -5,32 +5,13 @@ import (
 	"lintech/rego/game/loader"
 	"lintech/rego/iregoter"
 
-	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/harbdog/raycaster-go"
 )
-
-type resourceCrosshairs struct {
-	texture *ebiten.Image
-}
-
-const fullHealth = 100
 
 type Crosshairs struct {
 	rgData iregoter.RegoterData
 	health int
 }
-
-var crosshairsResource *resourceCrosshairs
-
-func loadCrosshairsResource() *resourceCrosshairs {
-	if crosshairsResource == nil {
-		texture := loader.GetSpriteFromFile("crosshairs_sheet.png")
-		crosshairsResource = &resourceCrosshairs{texture: texture}
-	}
-	return crosshairsResource
-}
-
-//g.tex.textures[16] = GetSpriteFromFile("crosshairs_sheet.png")
 
 func NewCrosshairs(coreMsgbox chan<- iregoter.IRegoterEvent) *Regoter[*Crosshairs] {
 	//loadCrosshairsResource()
@@ -57,7 +38,6 @@ func NewCrosshairs(coreMsgbox chan<- iregoter.IRegoterEvent) *Regoter[*Crosshair
 			Entity:   entity,
 			DrawInfo: di,
 		},
-		health: fullHealth,
 	}
 
 	r := NewRegoter(coreMsgbox, t)

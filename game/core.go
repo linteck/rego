@@ -313,7 +313,7 @@ func (g *Core) Run() {
 	}
 }
 
-func NewCore(cfg *iregoter.GameCfg) (chan<- iregoter.IRegoterEvent, <-chan iregoter.ICoreEvent) {
+func NewCore(cfg *iregoter.GameCfg) (iregoter.RgTxMsgbox, iregoter.RgRxMsgbox) {
 	c := make(chan iregoter.IRegoterEvent)
 	g := make(chan iregoter.ICoreEvent)
 

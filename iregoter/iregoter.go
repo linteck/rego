@@ -179,3 +179,8 @@ type RegoterData struct {
 	Entity   Entity
 	DrawInfo DrawInfo
 }
+
+type CollisionSpace struct {
+	CollisionRadius float64
+	CollisionHeight float64
+}
