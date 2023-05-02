@@ -56,6 +56,8 @@ func (g *Game) Update() error {
 func (g *Game) Run() {
 	g.paused = false
 	logger.Print("Start")
+	// Debug
+	//ebiten.SetTPS(2)
 	if err := ebiten.RunGame(g); err != nil {
 		logger.Fatal(err)
 	}

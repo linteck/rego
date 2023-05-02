@@ -28,6 +28,7 @@ type Player struct {
 	cfg    iregoter.GameCfg
 
 	health     int
+	mouse      iregoter.MousePosition
 	CameraZ    float64
 	Moved      bool
 	Weapon     *Weapon
@@ -35,7 +36,7 @@ type Player struct {
 	LastWeapon *Weapon
 
 	// Movement in this tick
-	movement *iregoter.RegoterMove
+	movement iregoter.RegoterMove
 }
 
 func NewPlayer(coreMsgbox chan<- iregoter.IRegoterEvent) *Regoter[*Player] {
@@ -44,7 +45,7 @@ func NewPlayer(coreMsgbox chan<- iregoter.IRegoterEvent) *Regoter[*Player] {
 	entity := iregoter.Entity{
 		Position:        iregoter.Position{X: 8.5, Y: 3.5, Z: 0},
 		Scale:           1,
-		Angle:           60.0,
+		Angle:           iregoter.RotateAngle(geom.Radians(60.0)),
 		Pitch:           0,
 		Velocity:        0,
 		MapColor:        color.RGBA{255, 0, 0, 255},
@@ -63,6 +64,7 @@ func NewPlayer(coreMsgbox chan<- iregoter.IRegoterEvent) *Regoter[*Player] {
 	t := &Player{
 		rgData: iregoter.RegoterData{
 			RgId:   id,
+			RgType: iregoter.RegoterEnumPlayer,
 			Entity: entity,
 		},
 		health:    fullHealth,
@@ -154,6 +156,8 @@ func (p *Player) getSelectedWeapon() (*Weapon, int) {
 func (p *Player) Update(cu iregoter.RgTxMsgbox, rgEntity iregoter.Entity,
 	playentity iregoter.Entity, rgState iregoter.RegoterState) {
 
+	p.movement = iregoter.RegoterMove{}
+	p.handleInput(false, &p.mouse)
 	// draw crosshairs
 	op := &ebiten.DrawImageOptions{}
 	op.Filter = ebiten.FilterNearest
@@ -164,6 +168,8 @@ func (p *Player) Update(cu iregoter.RgTxMsgbox, rgEntity iregoter.Entity,
 		p.Moved = false
 	}
 
+	e := iregoter.RegoterEventUpdatedMove{RgId: p.rgData.RgId, Move: p.movement}
+	cu <- e
 	// if info, ok := p.drawWeapon(screenSize); ok {
 	// 	cu <- info
 	// }

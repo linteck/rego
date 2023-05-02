@@ -170,22 +170,26 @@ func (g *Core) eventHandleUpdated3DMove(p *regoterInCore, e iregoter.RegoterEven
 func (g *Core) eventHandleUpdated2DMove(p *regoterInCore, e iregoter.RegoterEventUpdatedMove) bool {
 	pe := &p.entity
 	mSpeed := float64(e.Move.MoveSpeed)
+
 	rotateSpeed := e.Move.RotateSpeed
 	mAngle := float64(pe.Angle + rotateSpeed)
-	pitchSpeed := e.Move.PitchSpeed
-
 	mAngle = simplifyAngle(mAngle)
+
+	pitchSpeed := e.Move.PitchSpeed
+	mPitch := float64(pe.Pitch + pitchSpeed)
 
 	moveLine := geom.LineFromAngle(pe.Position.X, pe.Position.Y, mAngle, mSpeed)
 	newPos, collision, _ := g.getValidMove(pe, moveLine.X2, moveLine.Y2, pe.Position.Z, true)
 	moved := false
-	if newPos.X != pe.Position.X || newPos.Y != pe.Position.Y {
+	if newPos.X != pe.Position.X || newPos.Y != pe.Position.Y ||
+		mAngle != float64(pe.Angle) || mPitch != float64(pe.Pitch) {
+
 		pe.Position.X = newPos.X
 		pe.Position.Y = newPos.Y
+		pe.Angle = iregoter.RotateAngle(mAngle)
+		pe.Pitch = iregoter.PitchAngle(geom.Clamp(mPitch, -math.Pi/8, math.Pi/4))
 		moved = true
 	}
-	pe.Angle = iregoter.RotateAngle(mAngle)
-	pe.Pitch = iregoter.PitchAngle(geom.Clamp(float64(pe.Pitch+pitchSpeed), -math.Pi/8, math.Pi/4))
 	p.state.HasCollision = collision
 	return moved
 }
