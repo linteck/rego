@@ -6,6 +6,7 @@ import (
 	"lintech/rego/iregoter"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/harbdog/raycaster-go"
 )
 
 type resourceCrosshairs struct {
@@ -32,17 +33,20 @@ func loadCrosshairsResource() *resourceCrosshairs {
 //g.tex.textures[16] = GetSpriteFromFile("crosshairs_sheet.png")
 
 func NewCrosshairs(coreMsgbox chan<- iregoter.IRegoterEvent) *Regoter[*Crosshairs] {
-	loadCrosshairsResource()
+	//loadCrosshairsResource()
 	entity := iregoter.Entity{
-		RgId:       RgIdGenerator.GenId(),
-		RgType:     iregoter.RegoterEnumSprite,
-		Position:   iregoter.Position{X: 8, Y: 8, Z: 0},
-		Scale:      2,
-		MapColor:   color.RGBA{0, 255, 0, 255},
-		Collidable: true}
+		RgId:            RgIdGenerator.GenId(),
+		RgType:          iregoter.RegoterEnumCrosshair,
+		Position:        iregoter.Position{X: 5, Y: 5, Z: 0},
+		Scale:           2,
+		MapColor:        color.RGBA{255, 0, 0, 255},
+		Anchor:          raycaster.AnchorCenter,
+		CollisionRadius: 0,
+		CollisionHeight: 0,
+	}
 	di := iregoter.DrawInfo{
 		ImgLayer:    iregoter.ImgLayerSprite,
-		Img:         crosshairsResource.texture,
+		Img:         loader.GetSpriteFromFile("crosshairs_sheet.png"),
 		Columns:     8,
 		Rows:        8,
 		SpriteIndex: 55,

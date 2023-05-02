@@ -22,6 +22,7 @@ const (
 	RegoterEnumSprite
 	RegoterEnumProjectile
 	RegoterEnumEffect
+	RegoterEnumCrosshair
 )
 
 type GameEventTick struct {

@@ -32,7 +32,7 @@ func NewProjectile(
 		CollisionRadius: collisionRadius,
 		CollisionHeight: collisionHeight,
 		Anchor:          anchor,
-		Collidable:      false}
+	}
 	di := iregoter.DrawInfo{
 		ImgLayer:     iregoter.ImgLayerSprite,
 		Img:          img,
@@ -97,7 +97,7 @@ func SpawnProjectile(w Weapon, x float64, y float64, z float64, angle iregoter.R
 	p.entity.Velocity = w.projectileVelocity / float64(ebiten.TPS())
 
 	// keep track of what spawned it
-	p.entity.Collidable = false
+	p.entity.ParentId = w.entity.RgId
 
 	return p
 }

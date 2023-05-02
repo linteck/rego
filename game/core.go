@@ -13,7 +13,6 @@ import (
 
 	"github.com/chen3feng/stl4go"
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/harbdog/raycaster-go"
 	"github.com/harbdog/raycaster-go/geom"
 	"github.com/harbdog/raycaster-go/geom3d"
@@ -43,7 +42,9 @@ var allRegoterEnum = [...]iregoter.RegoterEnum{
 	iregoter.RegoterEnumPlayer,
 	iregoter.RegoterEnumSprite,
 	iregoter.RegoterEnumProjectile,
-	iregoter.RegoterEnumEffect}
+	iregoter.RegoterEnumEffect,
+	iregoter.RegoterEnumCrosshair,
+}
 
 type Core struct {
 	rxBox    iregoter.CoreRxMsgbox
@@ -106,6 +107,7 @@ func (g *Core) eventHandleNewRegoter(e iregoter.RegoterEventNewRegoter) {
 	} else {
 		sprite = iregoter.NewSpriteFromSheet(&rg.entity, rg.di.Img,
 			rg.di.Columns, rg.di.Rows, rg.di.SpriteIndex)
+		sprite.SetAnimationFrame(rg.di.HitIndex)
 	}
 	sprite.SetIllumination(rg.di.Illumination)
 	rg.sprite = sprite
@@ -253,22 +255,6 @@ func (r *Core) eventHandleUnknown(e iregoter.IRegoterEvent) error {
 	return nil
 }
 
-func (g *Core) eventHandleGameEventDraw(e iregoter.GameEventDraw) {
-
-	// for _, l := range g.imgs {
-	// 	l.ForEach(func(v iregoter.RegoterUpdatedImg) {
-	// 		e.Screen.DrawImage(v.Img, v.ImgOp)
-	// 	})
-	// 	l.Clear()
-	// }
-	g.drawScreen(e.Screen)
-
-	g.removeAllUnregisteredRogeter()
-	r := iregoter.CoreEventDrawDone{}
-	g.txToGame <- r
-
-}
-
 func (g *Core) removeAllUnregisteredRogeter() {
 	for _, l := range g.rgs {
 		ids := make([]iregoter.ID, l.Len())
@@ -401,89 +387,6 @@ func (core *Core) applyConfig() {
 	maxLightRGB := color.NRGBA{R: 255, G: 255, B: 255}
 	core.setLightRGB(minLightRGB, maxLightRGB)
 
-}
-
-func (g *Core) drawScreen(screen *ebiten.Image) {
-	// Put projectiles together with sprites for raycasting both as sprites
-	sl := g.rgs[iregoter.RegoterEnumSprite]
-	numSprites := sl.Len()
-	raycastSprites := make([]raycaster.Sprite, numSprites)
-
-	index := 0
-	sl.ForEach(func(i iregoter.ID, val regoterInCore) {
-		raycastSprites[index] = val.sprite
-		index += 1
-	})
-
-	// Debug
-	// g.camera.SetHeadingAngle(geom.Pi / 2)
-	// g.camera.SetPosition(&geom.Vector2{X: 10, Y: 10})
-	// CameraZ := 0.5
-	// g.camera.SetPositionZ(CameraZ)
-	// End of Debug
-
-	// Update camera (calculate raycast)
-	g.camera.Update(raycastSprites)
-
-	// Render raycast scene
-	g.camera.Draw(g.scene)
-
-	if g.cfg.ShowSpriteBoxes {
-		// draw sprite screen indicators to show we know where it was raycasted (must occur after camera.Update)
-		sl.ForEach(func(i iregoter.ID, val regoterInCore) {
-			drawSpriteBox(g.scene, val.sprite)
-		})
-	}
-
-	// Todo
-	// // draw sprite screen indicator only for sprite at point of convergence
-	// convergenceSprite := g.camera.GetConvergenceSprite()
-	// if convergenceSprite != nil {
-	// 	for sprite := range g.sprites {
-	// 		if convergenceSprite == sprite {
-	// 			drawSpriteIndicator(g.scene, sprite)
-	// 			break
-	// 		}
-	// 	}
-	// }
-
-	// draw raycasted scene
-	op := &ebiten.DrawImageOptions{}
-	// Todo
-	if g.cfg.RenderScale < 1 {
-		op.Filter = ebiten.FilterNearest
-		op.GeoM.Scale(1/g.cfg.RenderScale, 1/g.cfg.RenderScale)
-	}
-	screen.DrawImage(g.scene, op)
-
-	g.drawDebugInfo(screen)
-	g.drawMiniMap(screen)
-
-}
-
-func (g *Core) drawDebugInfo(screen *ebiten.Image) {
-	// draw FPS/TPS counter debug display
-	dbgMsg := fmt.Sprintf("FPS: %.1f\nTPS: %.1f/%v\n", ebiten.ActualFPS(), ebiten.ActualTPS(), ebiten.TPS())
-	//ebitenutil.DebugPrint(screen, fps)
-	g.debugMessages.ForEach(func(val string) {
-		dbgMsg += (val + "\n")
-	})
-	g.debugMessages.Clear()
-	ebitenutil.DebugPrint(screen, dbgMsg)
-}
-
-func (g *Core) drawMiniMap(screen *ebiten.Image) {
-	// draw minimap
-	mm := g.miniMap()
-	mmImg := ebiten.NewImageFromImage(mm)
-	if mmImg != nil {
-		op := &ebiten.DrawImageOptions{}
-		op.Filter = ebiten.FilterNearest
-
-		op.GeoM.Scale(5.0, 5.0)
-		op.GeoM.Translate(0, 50)
-		screen.DrawImage(mmImg, op)
-	}
 }
 
 // Update camera to match player position and orientation

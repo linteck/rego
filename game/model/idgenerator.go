@@ -10,7 +10,8 @@ type IdGenerator struct {
 	mu sync.Mutex
 }
 
-var RgIdGenerator = IdGenerator{id: 0}
+// ID start from 100
+var RgIdGenerator = IdGenerator{id: 100}
 
 func (g *IdGenerator) GenId() iregoter.ID {
 	g.mu.Lock()

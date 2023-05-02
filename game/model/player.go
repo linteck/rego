@@ -55,10 +55,10 @@ func NewPlayer(coreMsgbox chan<- iregoter.IRegoterEvent) *Regoter[*Player] {
 		Angle:           iregoter.RotateAngle(geom.Radians(60.0)),
 		Pitch:           0,
 		Velocity:        0,
-		MapColor:        color.RGBA{255, 0, 0, 255},
+		MapColor:        color.RGBA{0, 255, 0, 255},
 		CollisionRadius: loader.ClipDistance,
 		CollisionHeight: 0.5,
-		Collidable:      true}
+	}
 
 	// di := iregoter.DrawInfo{
 	// 	ImgLayer:    iregoter.ImgLayerSprite,

@@ -24,7 +24,7 @@ type Entity struct {
 	CollisionRadius float64
 	CollisionHeight float64
 	MapColor        color.RGBA
-	Collidable      bool
+	ParentId        ID
 }
 
 func (e *Entity) Pos() *geom.Vector2 {
