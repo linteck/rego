@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"image/color"
 	"lintech/rego/game/loader"
 	"lintech/rego/iregoter"
@@ -167,6 +168,9 @@ func (p *Player) Update(cu iregoter.RgTxMsgbox, rgEntity iregoter.Entity,
 	} else {
 		p.Moved = false
 	}
+
+	de := iregoter.EventDebugPrint{DebugString: fmt.Sprintf("%+v", p.movement)}
+	cu <- de
 
 	e := iregoter.RegoterEventUpdatedMove{RgId: p.rgData.RgId, Move: p.movement}
 	cu <- e

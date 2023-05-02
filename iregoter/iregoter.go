@@ -113,6 +113,9 @@ type MousePosition struct {
 	X int
 	Y int
 }
+type EventDebugPrint struct {
+	DebugString string
+}
 
 type GameEventCfgChanged struct {
 	Cfg GameCfg

@@ -20,6 +20,10 @@ import (
 
 var logger = log.New(os.Stdout, "Core ", 0)
 
+func DPrint(screen *ebiten.Image, msg string) {
+	ebitenutil.DebugPrint(screen, msg)
+}
+
 type regoterInCore struct {
 	tx     iregoter.CoreTxMsgbox
 	rgType iregoter.RegoterEnum
@@ -52,8 +56,9 @@ type Core struct {
 	//imgs     [len(imgLayerPriorities)]*stl4go.DList[iregoter.RegoterUpdatedImg]
 
 	// Camera
-	camera *raycaster.Camera
-	scene  *ebiten.Image
+	camera        *raycaster.Camera
+	scene         *ebiten.Image
+	debugMessages *stl4go.DList[string]
 	//--array of levels, levels refer to "floors" of the world--//
 	mapObj       *loader.Map
 	collisionMap []geom.Line
@@ -82,6 +87,10 @@ func (g *Core) eventHandleGameEventCfgChanged(e iregoter.GameEventCfgChanged) {
 	}
 	// logger.Print(fmt.Sprintf("current rg num %v", g.rgs.Len()))
 	g.applyConfig()
+}
+
+func (g *Core) eventHandleEventDebugPrint(e iregoter.EventDebugPrint) {
+	g.debugMessages.PushBack(e.DebugString)
 }
 
 func (g *Core) eventHandleNewRegoter(e iregoter.RegoterEventNewRegoter) {
@@ -240,6 +249,8 @@ func (g *Core) removeAllUnregisteredRogeter() {
 
 func (g *Core) process(e iregoter.IRegoterEvent) error {
 	switch e.(type) {
+	case iregoter.EventDebugPrint:
+		g.eventHandleEventDebugPrint(e.(iregoter.EventDebugPrint))
 	case iregoter.GameEventTick:
 		g.eventHandleGameEventTick(e.(iregoter.GameEventTick))
 	case iregoter.GameEventCfgChanged:
@@ -317,9 +328,12 @@ func NewCore(cfg *iregoter.GameCfg) (chan<- iregoter.IRegoterEvent, <-chan irego
 	tex.RenderFloorTex = cfg.RenderFloorTex
 
 	camera := raycaster.NewCamera(cfg.Width, cfg.Height, loader.TexWidth, mapObj, tex)
+	debugMessages := stl4go.NewDList[string]()
 	core := &Core{rxBox: c, txToGame: g, rgs: rgs,
 		mapObj: mapObj, collisionMap: collisionMap,
-		mapWidth: mapWidth, mapHeight: mapHeight, camera: camera, cfg: *cfg}
+		mapWidth: mapWidth, mapHeight: mapHeight, camera: camera, cfg: *cfg,
+		debugMessages: debugMessages,
+	}
 
 	core.applyConfig()
 
@@ -330,7 +344,7 @@ func (core *Core) applyConfig() {
 	//--init camera and renderer--//
 	// use scale to keep the desired window width and height
 	cfg := core.cfg
-	logger.Printf("%+v", cfg)
+	//logger.Printf("%+v", cfg)
 	core.setResolution(cfg.ScreenWidth, cfg.ScreenHeight)
 	core.setRenderScale(cfg.RenderScale)
 	core.setFullscreen(cfg.Fullscreen)
@@ -411,8 +425,13 @@ func (g *Core) drawScreen(screen *ebiten.Image) {
 	g.drawMiniMap(screen)
 
 	// draw FPS/TPS counter debug display
-	fps := fmt.Sprintf("FPS: %f\nTPS: %f/%v", ebiten.ActualFPS(), ebiten.ActualTPS(), ebiten.TPS())
-	ebitenutil.DebugPrint(screen, fps)
+	dbgMsg := fmt.Sprintf("FPS: %f\nTPS: %f/%v\n", ebiten.ActualFPS(), ebiten.ActualTPS(), ebiten.TPS())
+	//ebitenutil.DebugPrint(screen, fps)
+	g.debugMessages.ForEach(func(val string) {
+		dbgMsg += (val + "\n")
+	})
+	g.debugMessages.Clear()
+	ebitenutil.DebugPrint(screen, dbgMsg)
 }
 
 func (g *Core) drawMiniMap(screen *ebiten.Image) {
