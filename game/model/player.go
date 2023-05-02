@@ -1,7 +1,6 @@
 package model
 
 import (
-	"fmt"
 	"image/color"
 	"lintech/rego/game/loader"
 	"lintech/rego/iregoter"
@@ -187,8 +186,8 @@ func (p *Player) Update(cu iregoter.RgTxMsgbox, rgEntity iregoter.Entity,
 		p.Moved = false
 	}
 
-	de := iregoter.EventDebugPrint{DebugString: fmt.Sprintf("%+v", p.movement)}
-	cu <- de
+	// de := iregoter.EventDebugPrint{DebugString: fmt.Sprintf("%+v", p.movement)}
+	// cu <- de
 
 	e := iregoter.RegoterEventUpdatedMove{RgId: p.rgData.Entity.RgId, Move: p.movement}
 	cu <- e
@@ -211,7 +210,7 @@ func (p *Player) Move(mSpeed iregoter.Distance) {
 
 // Move player by strafe speed in the left/right direction
 func (p *Player) Strafe(sSpeed iregoter.Distance) {
-	var strafeAngle iregoter.RotateAngle = geom.HalfPi
+	var strafeAngle iregoter.RotateAngle = geom.Pi / 8.0
 	if sSpeed < 0 {
 		strafeAngle = -strafeAngle
 	}

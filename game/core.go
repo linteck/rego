@@ -456,10 +456,14 @@ func (g *Core) drawScreen(screen *ebiten.Image) {
 	}
 	screen.DrawImage(g.scene, op)
 
+	g.drawDebugInfo(screen)
 	g.drawMiniMap(screen)
 
+}
+
+func (g *Core) drawDebugInfo(screen *ebiten.Image) {
 	// draw FPS/TPS counter debug display
-	dbgMsg := fmt.Sprintf("FPS: %f\nTPS: %f/%v\n", ebiten.ActualFPS(), ebiten.ActualTPS(), ebiten.TPS())
+	dbgMsg := fmt.Sprintf("FPS: %.1f\nTPS: %.1f/%v\n", ebiten.ActualFPS(), ebiten.ActualTPS(), ebiten.TPS())
 	//ebitenutil.DebugPrint(screen, fps)
 	g.debugMessages.ForEach(func(val string) {
 		dbgMsg += (val + "\n")
