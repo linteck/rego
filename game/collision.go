@@ -19,6 +19,8 @@ type EntityCollision struct {
 
 // checks for valid move from current position, returns valid (x, y) position, whether a collision
 // was encountered, and a list of entity collisions that may have been encountered
+// NOTE: Bug??
+// When collision with Wall, the []*EntityCollision is empty!
 func (g *Core) getValidMove(entity *iregoter.Entity,
 	moveX, moveY, moveZ float64, checkAlternate bool) (*geom.Vector2, bool, []*EntityCollision) {
 

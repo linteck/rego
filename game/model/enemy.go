@@ -1,9 +1,7 @@
 package model
 
 import (
-	"image/color"
 	"lintech/rego/iregoter"
-	"log"
 	"math/rand"
 
 	"github.com/harbdog/raycaster-go"
@@ -28,7 +26,7 @@ func NewEnemy(coreMsgbox chan<- iregoter.IRegoterEvent,
 		RgType:          iregoter.RegoterEnumSprite,
 		Position:        po,
 		Scale:           scale,
-		MapColor:        color.RGBA{255, 0, 0, 255},
+		MapColor:        yellow,
 		Anchor:          raycaster.AnchorBottom,
 		CollisionRadius: cp.CollisionRadius,
 		CollisionHeight: cp.CollisionHeight,
@@ -63,7 +61,7 @@ func (c *Enemy) UpdateTick(cu iregoter.RgTxMsgbox) {
 	}
 	if c.hasCollision {
 		movement.VissionRotate = rand.Float64() * geom.Pi2
-		log.Printf("%+v", movement)
+		// log.Printf("%+v", movement)
 	}
 	if isMoving(movement) {
 		e := iregoter.RegoterEventUpdatedMove{RgId: c.rgData.Entity.RgId, Move: movement}
@@ -77,7 +75,7 @@ func (c *Enemy) UpdateData(cu iregoter.RgTxMsgbox, rgEntity iregoter.Entity,
 	c.rgData.Entity = rgEntity
 	c.hasCollision = rgState.HasCollision
 
-	log.Printf("Update Data %+v", c.rgData.Entity)
+	// log.Printf("Update Data %+v", c.rgData.Entity)
 	//log.Printf("enemy: %+v", rgEntity)
 	c.health -= rgState.HitHarm
 	if c.health <= 0 {

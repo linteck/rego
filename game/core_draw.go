@@ -28,8 +28,10 @@ func (g *Core) drawScreen(screen *ebiten.Image) {
 
 	index := 0
 	sl.ForEach(func(i iregoter.ID, val *regoterInCore) {
-		raycastSprites[index] = val.sprite
-		index += 1
+		if val.sprite != nil {
+			raycastSprites[index] = val.sprite
+			index += 1
+		}
 	})
 
 	// Update camera (calculate raycast)
@@ -44,7 +46,9 @@ func (g *Core) drawScreen(screen *ebiten.Image) {
 	if g.cfg.ShowSpriteBoxes {
 		// draw sprite screen indicators to show we know where it was raycasted (must occur after camera.Update)
 		sl.ForEach(func(i iregoter.ID, val *regoterInCore) {
-			drawSpriteBox(g.scene, val.sprite)
+			if val.sprite != nil {
+				drawSpriteBox(g.scene, val.sprite)
+			}
 		})
 	}
 

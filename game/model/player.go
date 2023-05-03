@@ -4,7 +4,6 @@ import (
 	"image/color"
 	"lintech/rego/game/loader"
 	"lintech/rego/iregoter"
-	"log"
 	"math"
 
 	"github.com/harbdog/raycaster-go/geom"
@@ -39,6 +38,7 @@ func NewPlayer(coreMsgbox chan<- iregoter.IRegoterEvent) *Regoter[*Player] {
 		Angle:           geom.Radians(60.0),
 		Pitch:           0,
 		Velocity:        0,
+		Resistance:      0.5,
 		MapColor:        color.RGBA{0, 255, 0, 255},
 		CollisionRadius: loader.ClipDistance,
 		CollisionHeight: 0.5,
@@ -60,13 +60,12 @@ func NewPlayer(coreMsgbox chan<- iregoter.IRegoterEvent) *Regoter[*Player] {
 		CameraZ:   0.5,
 		Moved:     false,
 		WeaponSet: NewWeapons(),
-		mouse:     iregoter.MousePosition{X: math.MinInt, Y: math.MinInt},
 	}
-	t.SelectWeapon(0)
-	t.rgData.DrawInfo = t.Weapon.di
-	if t.rgData.DrawInfo.Img == nil {
-		logger.Fatal("Invalid nil Img for NewPlayer()")
-	}
+	//t.SelectWeapon(0)
+	// t.rgData.DrawInfo = t.Weapon.di
+	// if t.rgData.DrawInfo.Img == nil {
+	// 	logger.Fatal("Invalid nil Img for NewPlayer()")
+	// }
 
 	r := NewRegoter(coreMsgbox, t)
 	return r
@@ -157,18 +156,21 @@ func isMoving(m iregoter.RegoterMove) bool {
 func (p *Player) UpdateTick(cu iregoter.RgTxMsgbox) {
 	// Debug
 	movement := handlePlayerInput(p.cfg, &p.mouse)
-
-	// Slow down Velocity
-	if math.Abs(float64(movement.Acceleration)) < MinimumVelocity {
-		if math.Abs(float64(p.rgData.Entity.Velocity)) > MinimumVelocity {
-			movement.Acceleration = -p.rgData.Entity.Velocity * 0.1
-			movement.MoveRotate = p.rgData.Entity.LastMoveRotate
-		}
-	}
 	movement.Velocity = p.rgData.Entity.Velocity
 
+	// // Slow down Velocity
+	// if math.Abs(movement.Acceleration) < MinimumVelocity {
+	// 	if math.Abs(p.rgData.Entity.Velocity) > MinimumVelocity {
+	// 		movement.Acceleration = -p.rgData.Entity.Velocity * 0.5
+	// 		movement.MoveRotate = p.rgData.Entity.LastMoveRotate
+	// 	} else {
+	// 		movement.MoveRotate = 0
+	// 	}
+	// }
+
 	if isMoving(movement) {
-		log.Printf("%+v", movement)
+		// log.Printf("VissionRotate = %.3f", movement.VissionRotate)
+		// log.Printf("Moverotate = %.3f", movement.MoveRotate)
 		e := iregoter.RegoterEventUpdatedMove{RgId: p.rgData.Entity.RgId, Move: movement}
 		cu <- e
 	}

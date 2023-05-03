@@ -88,7 +88,7 @@ func NewRegoter[T IThing](coreMsgbox chan<- iregoter.IRegoterEvent, t T) *Regote
 	r := &Regoter[T]{c, coreMsgbox, t}
 	go func() {
 		d := t.GetData()
-		e := iregoter.RegoterEventNewRegoter{Msgbox: c, RgData: d}
+		e := iregoter.RegoterEventRegisterRegoter{Msgbox: c, RgData: d}
 		r.txChan <- e
 		r.Run()
 	}()

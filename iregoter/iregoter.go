@@ -54,7 +54,7 @@ type GameEventTick struct{}
 type IRegoterEvent interface {
 }
 
-type RegoterEventNewRegoter struct {
+type RegoterEventRegisterRegoter struct {
 	Msgbox chan<- ICoreEvent
 	RgData RegoterData
 }
