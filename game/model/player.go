@@ -38,7 +38,7 @@ func NewPlayer(coreMsgbox chan<- iregoter.IRegoterEvent) *Regoter[*Player] {
 		Angle:           geom.Radians(60.0),
 		Pitch:           0,
 		Velocity:        0,
-		Resistance:      0.5,
+		Resistance:      0.1,
 		MapColor:        color.RGBA{0, 255, 0, 255},
 		CollisionRadius: loader.ClipDistance,
 		CollisionHeight: 0.5,
@@ -157,16 +157,9 @@ func (p *Player) UpdateTick(cu iregoter.RgTxMsgbox) {
 	// Debug
 	movement := handlePlayerInput(p.cfg, &p.mouse)
 	movement.Velocity = p.rgData.Entity.Velocity
-
-	// // Slow down Velocity
-	// if math.Abs(movement.Acceleration) < MinimumVelocity {
-	// 	if math.Abs(p.rgData.Entity.Velocity) > MinimumVelocity {
-	// 		movement.Acceleration = -p.rgData.Entity.Velocity * 0.5
-	// 		movement.MoveRotate = p.rgData.Entity.LastMoveRotate
-	// 	} else {
-	// 		movement.MoveRotate = 0
-	// 	}
-	// }
+	if !movement.KeyPressed {
+		movement.MoveRotate = p.rgData.Entity.LastMoveRotate
+	}
 
 	if isMoving(movement) {
 		// log.Printf("VissionRotate = %.3f", movement.VissionRotate)

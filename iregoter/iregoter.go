@@ -88,6 +88,7 @@ type RegoterMove struct {
 	Velocity      float64
 	VissionRotate float64
 	FireWeapon    bool
+	KeyPressed    bool
 }
 
 type RegoterEventUpdatedMove struct {

@@ -150,16 +150,22 @@ func handlePlayerInput(cfg iregoter.GameCfg, lastPosition *iregoter.MousePositio
 
 	if ebiten.IsKeyPressed(ebiten.KeyA) || ebiten.IsKeyPressed(ebiten.KeyLeft) {
 		rotLeft = true
+		movement.KeyPressed = true
 	}
 	if ebiten.IsKeyPressed(ebiten.KeyD) || ebiten.IsKeyPressed(ebiten.KeyRight) {
 		rotRight = true
+		movement.KeyPressed = true
 	}
 
 	if ebiten.IsKeyPressed(ebiten.KeyW) || ebiten.IsKeyPressed(ebiten.KeyUp) {
 		forward = true
+		// Becase when go forward, the movement.MoveRotate is 0.
+		// We need to know if direction Key is pressed.
+		movement.KeyPressed = true
 	}
 	if ebiten.IsKeyPressed(ebiten.KeyS) || ebiten.IsKeyPressed(ebiten.KeyDown) {
 		backward = true
+		movement.KeyPressed = true
 	}
 
 	// if ebiten.IsKeyPressed(ebiten.KeyC) {
