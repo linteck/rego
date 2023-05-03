@@ -167,14 +167,16 @@ type RegoterState struct {
 }
 
 type DrawInfo struct {
-	ImgLayer      ImgLayer
-	Img           *ebiten.Image
-	Columns       int
-	Rows          int
-	SpriteIndex   int
-	AnimationRate int
-	HitIndex      int //Frame index when Sprite is hit
-	Illumination  float64
+	ImgLayer          ImgLayer
+	Img               *ebiten.Image
+	TexFacingMap      *map[float64]int
+	AnimationReversed bool
+	Columns           int
+	Rows              int
+	SpriteIndex       int
+	AnimationRate     int
+	HitIndex          int //Frame index when Sprite is hit
+	Illumination      float64
 }
 
 type RegoterData struct {

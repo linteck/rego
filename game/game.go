@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"lintech/rego/game/loader"
 	"lintech/rego/game/model"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -88,33 +87,6 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 	return int(w), int(h)
 }
 
-func NewSorcerer(txToCore iregoter.RgTxMsgbox) {
-	sorcImg := loader.GetSpriteFromFile("sorcerer_sheet.png")
-	sorcWidth, sorcHeight := sorcImg.Bounds().Dx(), sorcImg.Bounds().Dy()
-	sorcCols, sorcRows := 10, 1
-	sorcScale := 1.25
-	sorcVelocity := 0.02
-	// in pixels, radius and height to use for collision testing
-	sorcPxRadius, sorcPxHeight := 40.0, 120.0
-	model.NewEnemy(txToCore,
-		iregoter.Position{X: 2, Y: 2, Z: 0},
-		iregoter.DrawInfo{
-			Img:           sorcImg,
-			ImgLayer:      iregoter.ImgLayerSprite,
-			Columns:       sorcCols,
-			Rows:          sorcRows,
-			AnimationRate: 5,
-		},
-		sorcScale,
-		iregoter.CollisionSpace{
-			CollisionRadius: (sorcScale * sorcPxRadius) / (float64(sorcWidth) / float64(sorcCols)),
-			CollisionHeight: (sorcScale * sorcPxHeight) / (float64(sorcHeight) / float64(sorcRows)),
-		},
-		sorcVelocity,
-	)
-
-}
-
 // NewGame - Allows the game to perform any initialization it needs to before starting to run.
 // This is where it can query for any required services and load any non-graphic
 // related content.  Calling base.Initialize will enumerate through any components
@@ -140,7 +112,10 @@ func NewGame() *Game {
 	// create crosshairs and weapon
 	model.NewCrosshairs(txToCore)
 	model.NewPlayer(txToCore)
-	NewSorcerer(txToCore)
+	for i := 0; i < 2; i++ {
+		model.NewSorcerer(txToCore)
+		model.NewWalker(txToCore)
+	}
 
 	// Todo
 	// init the sprites

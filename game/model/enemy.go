@@ -1,6 +1,7 @@
 package model
 
 import (
+	"lintech/rego/game/loader"
 	"lintech/rego/iregoter"
 	"math/rand"
 
@@ -31,7 +32,7 @@ func NewEnemy(coreMsgbox chan<- iregoter.IRegoterEvent,
 		CollisionRadius: cp.CollisionRadius,
 		CollisionHeight: cp.CollisionHeight,
 		Velocity:        velocity,
-		Angle:           0.25 * geom.Pi,
+		Angle:           rand.Float64() * geom.Pi2,
 	}
 	t := &Enemy{
 		rgData: iregoter.RegoterData{
@@ -90,4 +91,92 @@ func (c *Enemy) SetConfig(cfg iregoter.GameCfg) {
 
 func (c *Enemy) GetData() iregoter.RegoterData {
 	return c.rgData
+}
+
+var cnt = 1
+
+func NewSorcerer(txToCore iregoter.RgTxMsgbox) {
+	sorcImg := loader.GetSpriteFromFile("sorcerer_sheet.png")
+	sorcWidth, sorcHeight := sorcImg.Bounds().Dx(), sorcImg.Bounds().Dy()
+	sorcCols, sorcRows := 10, 1
+	sorcScale := 1.0
+	sorcVelocity := 0.02
+	// in pixels, radius and height to use for collision testing
+	sorcPxRadius, sorcPxHeight := 40.0, 120.0
+	collisionRadius := (sorcScale * sorcPxRadius) / (float64(sorcWidth) / float64(sorcCols))
+	collisionHeight := (sorcScale * sorcPxHeight) / (float64(sorcHeight) / float64(sorcRows))
+	cnt += 1
+	y := float64(2+cnt/100) * collisionRadius * 4
+	x := float64(2+cnt%100) * collisionRadius * 4
+
+	NewEnemy(txToCore,
+		iregoter.Position{X: x, Y: y, Z: 0},
+		iregoter.DrawInfo{
+			Img:               sorcImg,
+			ImgLayer:          iregoter.ImgLayerSprite,
+			Columns:           sorcCols,
+			Rows:              sorcRows,
+			AnimationRate:     5,
+			AnimationReversed: false,
+		},
+		sorcScale,
+		iregoter.CollisionSpace{
+			CollisionRadius: collisionRadius,
+			CollisionHeight: collisionHeight,
+		},
+		sorcVelocity,
+	)
+	// log.Printf("%v, %v", collisionRadius, collisionHeight)
+
+}
+
+func NewWalker(txToCore iregoter.RgTxMsgbox) {
+	// animated walking 8-directional sprite character
+	// [walkerTexFacingMap] player facing angle : texture row index
+	var walkerTexFacingMap = map[float64]int{
+		geom.Radians(315): 0,
+		geom.Radians(270): 1,
+		geom.Radians(225): 2,
+		geom.Radians(180): 3,
+		geom.Radians(135): 4,
+		geom.Radians(90):  5,
+		geom.Radians(45):  6,
+		geom.Radians(0):   7,
+	}
+	walkerImg := loader.GetSpriteFromFile("outleader_walking_sheet.png")
+	walkerWidth, walkerHeight := walkerImg.Bounds().Dx(), walkerImg.Bounds().Dy()
+	walkerCols, walkerRows := 4, 8
+	walkerScale := 0.75
+	// in pixels, radius and height to use for collision testing
+	walkerPxRadius, walkerPxHeight := 30.0, 80.0
+	// convert pixel to grid using image pixel size
+	walkerCollisionRadius := (walkerScale * walkerPxRadius) / (float64(walkerWidth) / float64(walkerCols))
+	walkerCollisionHeight := (walkerScale * walkerPxHeight) / (float64(walkerHeight) / float64(walkerRows))
+	// give sprite a sample velocity for movement
+	walkerVelocity := 0.02
+
+	cnt += 1
+	y := float64(2+cnt/100)*walkerCollisionRadius*4 + walkerCollisionRadius*4
+	x := float64(2+cnt%100) * walkerCollisionRadius * 4
+
+	NewEnemy(txToCore,
+		iregoter.Position{X: x, Y: y, Z: 0},
+		iregoter.DrawInfo{
+			Img:               walkerImg,
+			ImgLayer:          iregoter.ImgLayerSprite,
+			Columns:           walkerCols,
+			Rows:              walkerRows,
+			AnimationRate:     5,
+			AnimationReversed: true,
+			TexFacingMap:      &walkerTexFacingMap,
+		},
+		walkerScale,
+		iregoter.CollisionSpace{
+			CollisionRadius: walkerCollisionRadius,
+			CollisionHeight: walkerCollisionHeight,
+		},
+		walkerVelocity,
+	)
+
+	// log.Printf("%v, %v", walkerCollisionRadius, walkerCollisionHeight)
 }

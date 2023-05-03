@@ -118,6 +118,10 @@ func createCoreSprite(rg *regoterInCore) *iregoter.Sprite {
 	if rg.di.AnimationRate != 0 {
 		sprite = iregoter.NewAnimatedSprite(&rg.entity, rg.di.Img,
 			rg.di.Columns, rg.di.Rows, rg.di.AnimationRate)
+		sprite.SetAnimationReversed(rg.di.AnimationReversed)
+		if rg.di.TexFacingMap != nil {
+			sprite.SetTextureFacingMap(*rg.di.TexFacingMap)
+		}
 	} else {
 		sprite = iregoter.NewSpriteFromSheet(&rg.entity, rg.di.Img,
 			rg.di.Columns, rg.di.Rows, rg.di.SpriteIndex)
