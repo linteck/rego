@@ -19,7 +19,7 @@ type IThing interface {
 	GetData() iregoter.RegoterData
 	UpdateTick(c iregoter.RgTxMsgbox)
 	UpdateData(c iregoter.RgTxMsgbox, rgEntity iregoter.Entity,
-		state iregoter.RegoterState)
+		state iregoter.RegoterState) bool
 	SetConfig(cfg iregoter.GameCfg)
 }
 
@@ -29,26 +29,26 @@ type Regoter[T IThing] struct {
 	thing  T
 }
 
-func (r *Regoter[T]) process(e iregoter.ICoreEvent) error {
+func (r *Regoter[T]) process(e iregoter.ICoreEvent) (bool, error) {
 	// logger.Print(fmt.Sprintf("(%v) recv %T", r.thing.GetData().Entity.RgId, e))
+	running := true
 	switch e.(type) {
 	case iregoter.CoreEventUpdateTick:
 		r.eventHandleUpdateTick(e.(iregoter.CoreEventUpdateTick))
 	case iregoter.CoreEventUpdateData:
-		r.eventHandleUpdateData(e.(iregoter.CoreEventUpdateData))
+		running = r.eventHandleUpdateData(e.(iregoter.CoreEventUpdateData))
 	case iregoter.GameEventCfgChanged:
 		r.eventHandleCfgChanged(e.(iregoter.GameEventCfgChanged))
 	default:
 		r.eventHandleUnknown(e)
 	}
-	return nil
+	return running, nil
 }
 
 // Update the position and status of Regoter
 // And send new Position and status to IGame
-func (r *Regoter[T]) eventHandleUpdateData(e iregoter.CoreEventUpdateData) error {
-	r.thing.UpdateData(r.txChan, e.RgEntity, e.RgState)
-	return nil
+func (r *Regoter[T]) eventHandleUpdateData(e iregoter.CoreEventUpdateData) bool {
+	return r.thing.UpdateData(r.txChan, e.RgEntity, e.RgState)
 }
 
 func (r *Regoter[T]) eventHandleUpdateTick(e iregoter.CoreEventUpdateTick) error {
@@ -67,9 +67,11 @@ func (r *Regoter[T]) eventHandleUnknown(e iregoter.ICoreEvent) error {
 }
 
 func (r *Regoter[T]) Run() {
-	for {
+	running := true
+	var err error
+	for running {
 		e := <-r.rxBox
-		err := r.process(e)
+		running, err = r.process(e)
 		if err != nil {
 			fmt.Println(err)
 		}

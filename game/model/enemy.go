@@ -72,18 +72,20 @@ func (c *Enemy) UpdateTick(cu iregoter.RgTxMsgbox) {
 }
 
 func (c *Enemy) UpdateData(cu iregoter.RgTxMsgbox, rgEntity iregoter.Entity,
-	rgState iregoter.RegoterState) {
+	rgState iregoter.RegoterState) bool {
 
 	c.rgData.Entity = rgEntity
 	c.hasCollision = rgState.HasCollision
 
 	// log.Printf("Update Data %+v", c.rgData.Entity)
 	//log.Printf("enemy: %+v", rgEntity)
-	c.health -= rgState.HitHarm
+	// c.health -= rgState.HitHarm
 	if c.health <= 0 {
 		// Send Unregister to show 'Die'
 		cu <- iregoter.RegoterEventRegoterUnregister{RgId: c.rgData.Entity.RgId}
+		return false
 	}
+	return true
 
 }
 

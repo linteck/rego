@@ -2,102 +2,101 @@ package model
 
 import (
 	"image/color"
+	"lintech/rego/game/loader"
 	"lintech/rego/iregoter"
-	"math"
 
 	"github.com/harbdog/raycaster-go"
-	"github.com/jinzhu/copier"
-
-	"github.com/hajimehoshi/ebiten/v2"
 )
 
 type Projectile struct {
-	rgId         iregoter.ID
-	entity       iregoter.Entity
-	di           iregoter.DrawInfo
-	cfg          iregoter.GameCfg
-	Ricochets    int
-	Lifespan     float64
-	ImpactEffect Effect
+	rgData iregoter.RegoterData
+	// Ricochets    int
+	lifespan int
+	harm     int
+	effect   *Effect
 }
 
-func NewProjectile(
-	scale float64, img *ebiten.Image, mapColor color.RGBA, columns, rows int,
-	anchor raycaster.SpriteAnchor, collisionRadius, collisionHeight float64,
+func NewProjectile(di iregoter.DrawInfo,
+	scale float64, collision iregoter.CollisionSpace, velocity float64,
+	effect *Effect, harm int,
 ) *Projectile {
-	id := RgIdGenerator.GenId()
+	//loadCrosshairsResource()
 	entity := iregoter.Entity{
+		RgId:            RgIdGenerator.GenId(),
+		RgType:          iregoter.RegoterEnumProjectile,
 		Scale:           scale,
-		MapColor:        mapColor,
-		CollisionRadius: collisionRadius,
-		CollisionHeight: collisionHeight,
-		Anchor:          anchor,
+		Velocity:        velocity,
+		MapColor:        color.RGBA{0, 0, 0, 0},
+		Anchor:          raycaster.AnchorCenter,
+		CollisionRadius: collision.CollisionRadius,
+		CollisionHeight: collision.CollisionHeight,
 	}
+	t := &Projectile{
+		rgData: iregoter.RegoterData{
+			Entity:   entity,
+			DrawInfo: di,
+		},
+		effect:   effect,
+		harm:     harm,
+		lifespan: 100000,
+	}
+
+	return t
+}
+
+func (c *Projectile) UpdateTick(cu iregoter.RgTxMsgbox) {
+
+}
+
+func (c *Projectile) UpdateData(cu iregoter.RgTxMsgbox, rgEntity iregoter.Entity,
+	rgState iregoter.RegoterState) bool {
+
+	c.rgData.Entity = rgEntity
+	if rgState.HasCollision || rgEntity.Position.Z <= 0 {
+		c.effect.Spawn(cu, c.rgData)
+		return false
+	}
+	return true
+}
+
+func (p Projectile) Spawn(coreMsgbox chan<- iregoter.IRegoterEvent,
+	w iregoter.RegoterData) *Regoter[*Projectile] {
+	n := p
+	n.rgData.Entity.ParentId = w.Entity.RgId
+	n.rgData.Entity.Position = w.Entity.Position
+	n.rgData.Entity.Angle = w.Entity.Angle
+	n.rgData.Entity.Pitch = w.Entity.Pitch
+	r := NewRegoter(coreMsgbox, &n)
+	return r
+}
+
+func (c *Projectile) SetConfig(cfg iregoter.GameCfg) {
+}
+
+func (c *Projectile) GetData() iregoter.RegoterData {
+	return c.rgData
+}
+
+func NewProjectileChargedBolt(effect *Effect) *Projectile {
+	// preload projectile sprites
+	chargedBoltImg := loader.GetSpriteFromFile("charged_bolt_sheet.png")
+	chargedBoltWidth := chargedBoltImg.Bounds().Dx()
+	chargedBoltCols, chargedBoltRows := 6, 1
+	chargedBoltScale := 0.3
 	di := iregoter.DrawInfo{
-		ImgLayer:     iregoter.ImgLayerSprite,
-		Img:          img,
-		Columns:      columns,
-		Rows:         rows,
-		Illumination: 5000,
+		Img:           chargedBoltImg,
+		Columns:       chargedBoltCols,
+		Rows:          chargedBoltRows,
+		AnimationRate: 1,
 	}
-	p := &Projectile{
-		rgId:         id,
-		entity:       entity,
-		di:           di,
-		Ricochets:    0,
-		Lifespan:     math.MaxFloat64,
-		ImpactEffect: Effect{},
-	}
+	// in pixels, radius to use for collision testing
+	chargedBoltPxRadius := 50.0
+	chargedBoltCollisionRadius := (chargedBoltScale * chargedBoltPxRadius) / (float64(chargedBoltWidth) / float64(chargedBoltCols))
+	chargedBoltCollisionHeight := 2 * chargedBoltCollisionRadius
+	collision := iregoter.CollisionSpace{chargedBoltCollisionRadius, chargedBoltCollisionHeight}
+	chargedBoltVelocity := 6.0 // Velocity (as distance travelled/second)
+	chargedBoltProjectile := NewProjectile(di,
+		chargedBoltScale, collision, chargedBoltVelocity, effect, 1)
 
-	// // projectiles should not be convergence capable by player focal point
-	// p.Focusable = false
-
-	return p
-}
-
-func NewAnimatedProjectile(
-	scale float64, animationRate int, img *ebiten.Image, mapColor color.RGBA, columns, rows int,
-	anchor raycaster.SpriteAnchor, collisionRadius, collisionHeight float64,
-) *Projectile {
-	p := NewProjectile(scale, img, mapColor, columns, rows, anchor, collisionRadius, collisionHeight)
-	p.di.AnimationRate = animationRate
-
-	return p
-}
-
-func (p *Projectile) Update(cu iregoter.RgTxMsgbox, rgEntity *iregoter.Entity,
-	playEntiry *iregoter.Entity, HasCollision bool) {
-	if HasCollision || rgEntity.Position.Z <= 0 {
-		NewEffect(rgEntity.Position.X, rgEntity.Position.Y, rgEntity.Position.Z,
-			rgEntity.Angle, rgEntity.Pitch)
-		//Todo Delete Projectile
-	}
-	// Send a Move event
-}
-
-// func (g *Game) addProjectile(projectile *model.Projectile) {
-// 	g.projectiles[projectile] = struct{}{}
-// }
-
-// func (g *Game) deleteProjectile(projectile *model.Projectile) {
-// 	delete(g.projectiles, projectile)
-// }
-
-func SpawnProjectile(w Weapon, x float64, y float64, z float64, angle float64, pitch float64,
-	spawnedBy *iregoter.Entity) *Projectile {
-	p := &Projectile{}
-	copier.Copy(p, w.projectile)
-	p.entity.Position.X = x
-	p.entity.Position.Y = y
-	p.entity.Position.Z = z
-	p.entity.Angle = angle
-	p.entity.Pitch = pitch
-
-	// convert velocity from distance/second to distance per tick
-	p.entity.Velocity = w.projectileVelocity / float64(ebiten.TPS())
-
-	// keep track of what spawned it
-	p.entity.ParentId = w.entity.RgId
-
-	return p
+	return chargedBoltProjectile
 }

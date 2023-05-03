@@ -1,49 +1,89 @@
 package model
 
 import (
+	"image/color"
+	"lintech/rego/game/loader"
 	"lintech/rego/iregoter"
 
-	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/harbdog/raycaster-go"
 )
 
 type Effect struct {
-	*iregoter.Sprite
+	rgData    iregoter.RegoterData
 	LoopCount int
 }
 
-func NewAnimatedEffect(
-	x, y, scale float64, animationRate int, img *ebiten.Image, columns, rows int, anchor raycaster.SpriteAnchor, loopCount int,
-) *Effect {
-	// mapColor := color.RGBA{0, 0, 0, 0}
-	e := &Effect{
-		// Sprite:    iregoter.NewAnimatedSprite(x, y, scale, animationRate, img, mapColor, columns, rows, anchor, 0, 0),
-		LoopCount: loopCount,
+func NewEffect(di iregoter.DrawInfo, scale float64, loopCount int) *Effect {
+	//loadCrosshairsResource()
+	entity := iregoter.Entity{
+		RgId:            RgIdGenerator.GenId(),
+		RgType:          iregoter.RegoterEnumSprite,
+		Scale:           scale,
+		Velocity:        0,
+		MapColor:        color.RGBA{0, 0, 0, 0},
+		Anchor:          raycaster.AnchorCenter,
+		CollisionRadius: 0,
+		CollisionHeight: 0,
+	}
+	t := &Effect{
+		rgData: iregoter.RegoterData{
+			Entity:   entity,
+			DrawInfo: di,
+		},
 	}
 
-	// // effects should not be convergence capable by player focal point
-	// e.Sprite.Focusable = false
-
-	// effects self illuminate so they do not get dimmed in dark conditions
-	// e.Sprite.SetIllumination(5000)
-
-	return e
+	return t
 }
 
-func NewEffect(x float64, y float64, z float64, angle float64, pitch float64) *Effect {
-	e := &Effect{}
-	// s := &iregoter.Sprite{}
-	// copier.Copy(e, p.ImpactEffect)
-	// copier.Copy(s, p.ImpactEffect.Sprite)
+func (ef *Effect) UpdateTick(cu iregoter.RgTxMsgbox) {
+}
 
-	// e.Sprite = s
-	// e.Position = &geom.Vector2{X: x, Y: y}
-	// e.Position.Z = z
-	// e.Angle = angle
-	// e.Pitch = pitch
+func (ef *Effect) UpdateData(cu iregoter.RgTxMsgbox, rgEntity iregoter.Entity,
+	rgState iregoter.RegoterState) bool {
 
-	// // keep track of what spawned it
-	// e.Parent = p.Parent
+	if rgState.AnimationLoopCnt >= ef.LoopCount {
+		e := iregoter.RegoterEventRegoterUnregister{RgId: ef.rgData.Entity.RgId}
+		cu <- e
+		return false
+	} else {
+		return true
+	}
+}
 
-	return e
+func (ef Effect) Spawn(coreMsgbox chan<- iregoter.IRegoterEvent,
+	p iregoter.RegoterData) *Regoter[*Effect] {
+	n := ef
+	n.rgData.Entity.ParentId = p.Entity.RgId
+	n.rgData.Entity.Position = p.Entity.Position
+	r := NewRegoter(coreMsgbox, &n)
+	return r
+}
+
+func (c *Effect) SetConfig(cfg iregoter.GameCfg) {
+}
+
+func (c *Effect) GetData() iregoter.RegoterData {
+	return c.rgData
+}
+
+func NewRedExplosionEffect() *Effect {
+	di := iregoter.DrawInfo{
+		Img:           loader.GetSpriteFromFile("red_explosion_sheet.png"),
+		AnimationRate: 1,
+		Columns:       8,
+		Rows:          3,
+	}
+	redExplosionEffect := NewEffect(di, 0.20, 2)
+	return redExplosionEffect
+}
+
+func NewBlueExplosionEffect() *Effect {
+	di := iregoter.DrawInfo{
+		Img:           loader.GetSpriteFromFile("blue_explosion_sheet.png"),
+		AnimationRate: 3,
+		Columns:       5,
+		Rows:          3,
+	}
+	blueExplosionEffect := NewEffect(di, 0.75, 1)
+	return blueExplosionEffect
 }

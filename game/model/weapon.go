@@ -10,13 +10,11 @@ import (
 )
 
 type Weapon struct {
-	di                 iregoter.DrawInfo
-	entity             iregoter.Entity
-	firing             bool
-	cooldown           int
-	rateOfFire         float64
-	projectileVelocity float64
-	projectile         Projectile
+	rgData     iregoter.RegoterData
+	firing     bool
+	cooldown   int
+	rateOfFire float64
+	projectile *Projectile
 }
 
 var (
@@ -30,59 +28,35 @@ var (
 )
 
 func NewWeaponChargedBolt() *Weapon {
-	// preload projectile sprites
-	chargedBoltImg := loader.GetSpriteFromFile("charged_bolt_sheet.png")
-	chargedBoltWidth := chargedBoltImg.Bounds().Dx()
-	chargedBoltCols, chargedBoltRows := 6, 1
-	chargedBoltScale := 0.3
-	// in pixels, radius to use for collision testing
-	chargedBoltPxRadius := 50.0
-	chargedBoltCollisionRadius := (chargedBoltScale * chargedBoltPxRadius) / (float64(chargedBoltWidth) / float64(chargedBoltCols))
-	chargedBoltCollisionHeight := 2 * chargedBoltCollisionRadius
-	chargedBoltProjectile := NewAnimatedProjectile(
-		chargedBoltScale, 1, chargedBoltImg, blueish,
-		chargedBoltCols, chargedBoltRows, raycaster.AnchorCenter, chargedBoltCollisionRadius, chargedBoltCollisionHeight)
+	effect := NewBlueExplosionEffect()
+	projectile := NewProjectileChargedBolt(effect)
 
-	// preload effect sprites
-	blueExplosionImg := loader.GetSpriteFromFile("blue_explosion_sheet.png")
-	blueExplosionEffect := NewAnimatedEffect(
-		0, 0, 0.75, 3, blueExplosionImg, 5, 3, raycaster.AnchorCenter, 1,
-	)
-	chargedBoltProjectile.ImpactEffect = *blueExplosionEffect
-
-	// create weapons
-	chargedBoltRoF := 2.5      // Rate of Fire (as RoF/second)
-	chargedBoltVelocity := 6.0 // Velocity (as distance travelled/second)
-	weaponImg := loader.GetSpriteFromFile("hand_spell.png")
-	chargedBoltWeapon := NewWeapon(1.0, 7, weaponImg, 3, 1, *chargedBoltProjectile,
-		chargedBoltVelocity, chargedBoltRoF)
-	return chargedBoltWeapon
+	RoF := 2.0
+	scale := 1.0
+	di := iregoter.DrawInfo{
+		Img:           loader.GetSpriteFromFile("hand_spell.png"),
+		Columns:       3,
+		Rows:          1,
+		AnimationRate: 7,
+	}
+	weapon := NewWeapon(di, scale, projectile, RoF)
+	return weapon
 }
 
 func NewWeaponRedBolt() *Weapon {
-	redBoltImg := loader.GetSpriteFromFile("red_bolt.png")
-	redBoltWidth := redBoltImg.Bounds().Dx()
-	redBoltScale := 0.25
-	// in pixels, radius to use for collision testing
-	redBoltPxRadius := 4.0
-	redBoltCollisionRadius := (redBoltScale * redBoltPxRadius) / float64(redBoltWidth)
-	redBoltCollisionHeight := 2 * redBoltCollisionRadius
-	redBoltProjectile := NewProjectile(
-		redBoltScale, redBoltImg, reddish, 1, 1,
-		raycaster.AnchorCenter, redBoltCollisionRadius, redBoltCollisionHeight,
-	)
+	effect := NewRedExplosionEffect()
+	projectile := NewProjectileChargedBolt(effect)
 
-	redExplosionImg := loader.GetSpriteFromFile("red_explosion_sheet.png")
-	redExplosionEffect := NewAnimatedEffect(
-		0, 0, 0.20, 1, redExplosionImg, 8, 3, raycaster.AnchorCenter, 1,
-	)
-	redBoltProjectile.ImpactEffect = *redExplosionEffect
-
-	staffBoltRoF := 6.0
-	staffBoltVelocity := 24.0
-	weaponImg := loader.GetSpriteFromFile("hand_staff.png")
-	staffBoltWeapon := NewWeapon(1.0, 7, weaponImg, 3, 1, *redBoltProjectile, staffBoltVelocity, staffBoltRoF)
-	return staffBoltWeapon
+	RoF := 6.0
+	scale := 1.0
+	di := iregoter.DrawInfo{
+		Img:           loader.GetSpriteFromFile("hand_staff.png"),
+		Columns:       3,
+		Rows:          1,
+		AnimationRate: 7,
+	}
+	weapon := NewWeapon(di, scale, projectile, RoF)
+	return weapon
 }
 
 func NewWeapons() []*Weapon {
@@ -92,31 +66,57 @@ func NewWeapons() []*Weapon {
 	return weapons
 }
 
-func NewWeapon(scale float64,
-	animationRate int, img *ebiten.Image, columns, rows int, projectile Projectile, projectileVelocity, rateOfFire float64,
+func NewWeapon(di iregoter.DrawInfo, scale float64,
+	projectile *Projectile, rateOfFire float64,
 ) *Weapon {
 	entity := iregoter.Entity{
-		Scale: scale,
+		RgId:            RgIdGenerator.GenId(),
+		RgType:          iregoter.RegoterEnumWeapon,
+		Scale:           scale,
+		Position:        iregoter.Position{X: 1, Y: 1, Z: 0},
+		MapColor:        color.RGBA{0, 0, 0, 0},
+		Anchor:          raycaster.AnchorCenter,
+		CollisionRadius: 0,
+		CollisionHeight: 0,
 	}
-	di := iregoter.DrawInfo{
-		ImgLayer:      iregoter.ImgLayerSprite,
-		Img:           img,
-		Columns:       columns,
-		Rows:          rows,
-		AnimationRate: animationRate}
+
 	w := Weapon{
-		di:                 di,
-		entity:             entity,
-		firing:             false,
-		cooldown:           0,
-		rateOfFire:         rateOfFire,
-		projectileVelocity: projectileVelocity,
-		projectile:         projectile,
+		rgData: iregoter.RegoterData{
+			Entity:   entity,
+			DrawInfo: di,
+		},
+		firing:     false,
+		cooldown:   0,
+		rateOfFire: rateOfFire,
+		projectile: projectile,
 	}
-	if w.di.Img == nil {
-		logger.Fatal("Invalid nil Img for NewWeapon()")
-	}
+
 	return &w
+}
+
+func (w Weapon) Use(coreMsgbox chan<- iregoter.IRegoterEvent) *Regoter[*Weapon] {
+	r := NewRegoter(coreMsgbox, &w)
+	return r
+}
+
+func (w Weapon) Holster(coreMsgbox chan<- iregoter.IRegoterEvent) {
+	//r := NewRegoter(coreMsgbox, &w)
+}
+
+func (c *Weapon) UpdateTick(cu iregoter.RgTxMsgbox) {
+
+}
+
+func (c *Weapon) UpdateData(cu iregoter.RgTxMsgbox, rgEntity iregoter.Entity,
+	rgState iregoter.RegoterState) bool {
+	return true
+}
+
+func (c *Weapon) SetConfig(cfg iregoter.GameCfg) {
+}
+
+func (c *Weapon) GetData() iregoter.RegoterData {
+	return c.rgData
 }
 
 func (w *Weapon) Fire() bool {

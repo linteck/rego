@@ -4,6 +4,7 @@ import (
 	"image/color"
 	"lintech/rego/game/loader"
 	"lintech/rego/iregoter"
+	"log"
 	"math"
 
 	"github.com/harbdog/raycaster-go/geom"
@@ -18,6 +19,7 @@ type Player struct {
 	rgData iregoter.RegoterData
 	cfg    iregoter.GameCfg
 
+	txChan     iregoter.RgTxMsgbox
 	health     int
 	mouse      iregoter.MousePosition
 	CameraZ    float64
@@ -56,12 +58,13 @@ func NewPlayer(coreMsgbox chan<- iregoter.IRegoterEvent) *Regoter[*Player] {
 		rgData: iregoter.RegoterData{
 			Entity: entity,
 		},
+		txChan:    coreMsgbox,
 		health:    fullHealth,
 		CameraZ:   0.5,
 		Moved:     false,
 		WeaponSet: NewWeapons(),
 	}
-	//t.SelectWeapon(0)
+	t.SelectWeapon(1)
 	// t.rgData.DrawInfo = t.Weapon.di
 	// if t.rgData.DrawInfo.Img == nil {
 	// 	logger.Fatal("Invalid nil Img for NewPlayer()")
@@ -83,25 +86,22 @@ func (p *Player) AddWeapon(w *Weapon) {
 
 func (p *Player) SelectWeapon(weaponIndex int) *Weapon {
 	// TODO: add some kind of sheath/unsheath animation
-	if weaponIndex < 0 {
-		// put away weapon
-		if p.Weapon != nil {
-			// store as last weapon
-			p.LastWeapon = p.Weapon
-		}
-		p.Weapon = nil
-		return nil
+	if weaponIndex < 0 || weaponIndex > len(p.WeaponSet) {
+		log.Fatalf("weaponIndex %v is out of range (0, %v)", weaponIndex, len(p.WeaponSet))
 	}
-	newWeapon := p.Weapon
-	if weaponIndex < len(p.WeaponSet) {
-		newWeapon = p.WeaponSet[weaponIndex]
-	}
-	if newWeapon != p.Weapon {
-		// store as last weapon
+	newWeapon := p.WeaponSet[weaponIndex]
+	if newWeapon == nil || newWeapon == p.Weapon {
+		return p.Weapon
+	} else {
 		p.LastWeapon = p.Weapon
+		if p.LastWeapon != nil {
+			// store as last weapon
+			p.LastWeapon.Holster(p.txChan)
+		}
 		p.Weapon = newWeapon
+		p.Weapon.Use(p.txChan)
+		return p.Weapon
 	}
-	return p.Weapon
 }
 
 func (p *Player) NextWeapon(reverse bool) *Weapon {
@@ -180,11 +180,12 @@ func (p *Player) UpdateTick(cu iregoter.RgTxMsgbox) {
 }
 
 func (p *Player) UpdateData(cu iregoter.RgTxMsgbox, rgEntity iregoter.Entity,
-	rgState iregoter.RegoterState) {
+	rgState iregoter.RegoterState) bool {
 	// Debug
 	p.rgData.Entity = rgEntity
 	// if rgState.HasCollision {
 	// }
+	return true
 }
 
 // // Move player by move speed in the forward/backward direction

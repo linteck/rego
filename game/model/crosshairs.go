@@ -58,33 +58,8 @@ func (c *Crosshairs) UpdateTick(cu iregoter.RgTxMsgbox) {
 }
 
 func (c *Crosshairs) UpdateData(cu iregoter.RgTxMsgbox, rgEntity iregoter.Entity,
-	rgState iregoter.RegoterState) {
-
-	c.rgData.Entity = rgEntity
-
-	// draw crosshairs
-	// op := &ebiten.DrawImageOptions{}
-	// op.Filter = ebiten.FilterNearest
-
-	// s := c.Sprite
-	// crosshairScale := c.Sprite.Scale()
-	// op.GeoM.Scale(crosshairScale, crosshairScale)
-	// op.GeoM.Translate(
-	// 	float64(screenSize.Width)/2-float64(s.W)*crosshairScale/2,
-	// 	float64(screenSize.Height)/2-float64(s.H)*crosshairScale/2,
-	// )
-
-	// changed := true
-	// info := iregoter.RegoterUpdatedImg{ImgOp: op, Sprite: s,
-	// 	Visiable: true, Deleted: false, Changed: changed}
-	// e := iregoter.RegoterEventUpdatedImg{RgId: 0, Info: info}
-	// cu <- e
-	// Todo
-	// if c.IsHitIndicatorActive() {
-	// 	screen.DrawImage(g.crosshairs.HitIndicator.Texture(), op)
-	// 	g.crosshairs.Update()
-	// 	cu <- info
-	// }
+	rgState iregoter.RegoterState) bool {
+	return true
 }
 
 func (c *Crosshairs) SetConfig(cfg iregoter.GameCfg) {

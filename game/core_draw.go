@@ -41,6 +41,7 @@ func (g *Core) drawScreen(screen *ebiten.Image) {
 	g.camera.Draw(g.scene)
 
 	// draw equipped weapon
+	g.drawWeapon(g.scene)
 	// apply lighting setting
 
 	if g.cfg.ShowSpriteBoxes {
@@ -81,6 +82,25 @@ func (g *Core) drawScreen(screen *ebiten.Image) {
 	// draw DebugInfo
 	g.drawDebugInfo(screen)
 
+}
+
+func (g *Core) drawWeapon(scene *ebiten.Image) {
+	sl := g.rgs[iregoter.RegoterEnumWeapon]
+	sl.ForEach(func(i iregoter.ID, val *regoterInCore) {
+		if val.sprite != nil {
+			op := &ebiten.DrawImageOptions{}
+			op.Filter = ebiten.FilterNearest
+			weaponScale := val.sprite.Scale() * g.cfg.RenderScale
+			op.GeoM.Scale(weaponScale, weaponScale)
+			op.GeoM.Translate(
+				float64(g.cfg.Width)/2-float64(val.sprite.W)*weaponScale/2,
+				float64(g.cfg.Height)-float64(val.sprite.H)*weaponScale+1,
+			)
+			op.ColorScale.Scale(float32(g.cfg.MaxLightRGB.R)/255, float32(g.cfg.MaxLightRGB.G)/255,
+				float32(g.cfg.MaxLightRGB.B)/255, 1)
+			scene.DrawImage(val.sprite.Texture(), op)
+		}
+	})
 }
 
 func (g *Core) drawDebugInfo(screen *ebiten.Image) {

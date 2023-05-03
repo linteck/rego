@@ -43,6 +43,7 @@ var allRegoterEnum = [...]iregoter.RegoterEnum{
 	iregoter.RegoterEnumProjectile,
 	iregoter.RegoterEnumEffect,
 	iregoter.RegoterEnumCrosshair,
+	iregoter.RegoterEnumWeapon,
 	iregoter.RegoterEnumPlayer,
 }
 
@@ -168,6 +169,9 @@ func (g *Core) eventHandleUpdatedMove(e iregoter.RegoterEventUpdatedMove) {
 		moved := g.updatedMove(p, e)
 		if moved && (p.rgType == iregoter.RegoterEnumPlayer) {
 			g.updatePlayerCamera(&p.entity, moved, false)
+		}
+		if p.di.AnimationRate > 0 {
+			p.state.AnimationLoopCnt = p.sprite.LoopCounter()
 		}
 		e := iregoter.CoreEventUpdateData{RgEntity: p.entity, RgState: p.state}
 		p.tx <- e

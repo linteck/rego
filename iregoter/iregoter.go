@@ -22,6 +22,7 @@ const (
 	RegoterEnumProjectile
 	RegoterEnumEffect
 	RegoterEnumCrosshair
+	RegoterEnumWeapon
 	RegoterEnumPlayer
 )
 
@@ -161,9 +162,9 @@ type RgRxMsgbox <-chan ICoreEvent
 type RgTxMsgbox chan<- IRegoterEvent
 
 type RegoterState struct {
-	Unregistered bool
-	HasCollision bool
-	HitHarm      int
+	Unregistered     bool
+	HasCollision     bool
+	AnimationLoopCnt int
 }
 
 type DrawInfo struct {
