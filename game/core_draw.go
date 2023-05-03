@@ -27,7 +27,7 @@ func (g *Core) drawScreen(screen *ebiten.Image) {
 	raycastSprites := make([]raycaster.Sprite, numSprites)
 
 	index := 0
-	sl.ForEach(func(i iregoter.ID, val regoterInCore) {
+	sl.ForEach(func(i iregoter.ID, val *regoterInCore) {
 		raycastSprites[index] = val.sprite
 		index += 1
 	})
@@ -43,7 +43,7 @@ func (g *Core) drawScreen(screen *ebiten.Image) {
 
 	if g.cfg.ShowSpriteBoxes {
 		// draw sprite screen indicators to show we know where it was raycasted (must occur after camera.Update)
-		sl.ForEach(func(i iregoter.ID, val regoterInCore) {
+		sl.ForEach(func(i iregoter.ID, val *regoterInCore) {
 			drawSpriteBox(g.scene, val.sprite)
 		})
 	}
@@ -92,7 +92,7 @@ func (g *Core) drawDebugInfo(screen *ebiten.Image) {
 
 func (g *Core) drawCrosshairs(screen *ebiten.Image) {
 	cl := g.rgs[iregoter.RegoterEnumCrosshair]
-	cl.ForEach(func(i iregoter.ID, r regoterInCore) {
+	cl.ForEach(func(i iregoter.ID, r *regoterInCore) {
 		op := &ebiten.DrawImageOptions{}
 		op.Filter = ebiten.FilterNearest
 

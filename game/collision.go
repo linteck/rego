@@ -42,8 +42,14 @@ func (g *Core) getValidMove(entity *iregoter.Entity,
 	}
 
 	// check sprite against player collision
-	player := g.rgs[iregoter.RegoterEnumPlayer].Iterate().Value().sprite
-	if entity.RgId != player.Entity.RgId && entity.ParentId != player.Entity.RgId && entity.CollisionRadius > 0 {
+	var player *iregoter.Sprite = nil
+	pl := g.rgs[iregoter.RegoterEnumPlayer]
+	if pl.Len() > 0 {
+		player = pl.Iterate().Value().sprite
+	}
+
+	if nil != player && entity.RgId != player.Entity.RgId &&
+		entity.ParentId != player.Entity.RgId && entity.CollisionRadius > 0 {
 		// TODO: only check for collision if player is somewhat nearby
 
 		// quick check if intersects in Z-plane
@@ -72,7 +78,7 @@ func (g *Core) getValidMove(entity *iregoter.Entity,
 
 	// check sprite collisions
 	g.rgs[iregoter.RegoterEnumSprite].ForEach(
-		func(i iregoter.ID, r regoterInCore) {
+		func(i iregoter.ID, r *regoterInCore) {
 			sprite := r.sprite
 			// TODO: only check intersection of nearby sprites instead of all of them
 			if entity.RgId == sprite.Entity.RgId || entity.ParentId == sprite.Entity.RgId || entity.CollisionRadius <= 0 || sprite.Entity.CollisionRadius <= 0 {

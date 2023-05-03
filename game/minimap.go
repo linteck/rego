@@ -26,7 +26,7 @@ func (g *Core) miniMap() *image.RGBA {
 	// sprite positions, sort by color to avoid random color getting chosen as last when using map keys
 	sl := g.rgs[iregoter.RegoterEnumSprite]
 	sprites := make([]*iregoter.Entity, 0, sl.Len())
-	sl.ForEach(func(_ iregoter.ID, s regoterInCore) {
+	sl.ForEach(func(_ iregoter.ID, s *regoterInCore) {
 		sprites = append(sprites, &s.entity)
 	})
 	sort.Slice(sprites, func(i, j int) bool {
@@ -43,9 +43,9 @@ func (g *Core) miniMap() *image.RGBA {
 	}
 
 	// projectile positions
-	pl := g.rgs[iregoter.RegoterEnumProjectile]
-	projectiles := make([]*iregoter.Entity, 0, pl.Len())
-	pl.ForEach(func(_ iregoter.ID, p regoterInCore) {
+	pjl := g.rgs[iregoter.RegoterEnumProjectile]
+	projectiles := make([]*iregoter.Entity, 0, pjl.Len())
+	pjl.ForEach(func(_ iregoter.ID, p *regoterInCore) {
 		projectiles = append(projectiles, &p.entity)
 	})
 	sort.Slice(projectiles, func(i, j int) bool {
@@ -56,14 +56,15 @@ func (g *Core) miniMap() *image.RGBA {
 
 	for _, projectile := range projectiles {
 		if projectile.MapColor.A > 0 {
-
 			m.Set(int(projectile.Position.X), int(projectile.Position.Y), projectile.MapColor)
 		}
 	}
 
 	// player position
-	player := g.rgs[iregoter.RegoterEnumPlayer].Iterate().Value().entity
-	m.Set(int(player.Position.X), int(player.Position.Y), player.MapColor)
+	pl := g.rgs[iregoter.RegoterEnumPlayer]
+	pl.ForEach(func(_ iregoter.ID, p *regoterInCore) {
+		m.Set(int(p.entity.Position.X), int(p.entity.Position.Y), p.entity.MapColor)
+	})
 
 	return m
 }

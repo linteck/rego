@@ -60,6 +60,7 @@ func NewPlayer(coreMsgbox chan<- iregoter.IRegoterEvent) *Regoter[*Player] {
 		CameraZ:   0.5,
 		Moved:     false,
 		WeaponSet: NewWeapons(),
+		mouse:     iregoter.MousePosition{X: math.MinInt, Y: math.MinInt},
 	}
 	t.SelectWeapon(0)
 	t.rgData.DrawInfo = t.Weapon.di

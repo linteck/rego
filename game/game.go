@@ -61,7 +61,7 @@ func (g *Game) Run() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	logger.Print("Start")
 	// Debug
-	//ebiten.SetTPS(2)
+	// ebiten.SetTPS(1)
 	if err := ebiten.RunGame(g); err != nil {
 		logger.Fatal(err)
 	}
@@ -139,7 +139,7 @@ func NewGame() *Game {
 
 	// create crosshairs and weapon
 	model.NewCrosshairs(txToCore)
-	model.NewPlayer(txToCore)
+	//model.NewPlayer(txToCore)
 	NewSorcerer(txToCore)
 
 	// Todo

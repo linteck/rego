@@ -39,18 +39,18 @@ var imgLayerPriorities = [...]iregoter.ImgLayer{
 }
 
 var allRegoterEnum = [...]iregoter.RegoterEnum{
-	iregoter.RegoterEnumPlayer,
 	iregoter.RegoterEnumSprite,
 	iregoter.RegoterEnumProjectile,
 	iregoter.RegoterEnumEffect,
 	iregoter.RegoterEnumCrosshair,
+	iregoter.RegoterEnumPlayer,
 }
 
 type Core struct {
 	rxBox    iregoter.CoreRxMsgbox
 	txToGame iregoter.CoreTxMsgbox
 	cfg      iregoter.GameCfg
-	rgs      [len(allRegoterEnum)]*stl4go.SkipList[iregoter.ID, regoterInCore]
+	rgs      [len(allRegoterEnum)]*stl4go.SkipList[iregoter.ID, *regoterInCore]
 	//imgs     [len(imgLayerPriorities)]*stl4go.DList[iregoter.RegoterUpdatedImg]
 
 	// Camera
@@ -66,7 +66,7 @@ type Core struct {
 
 func (g *Core) eventHandleGameEventTick(e iregoter.GameEventTick) {
 	for _, l := range g.rgs {
-		l.ForEach(func(k iregoter.ID, v regoterInCore) {
+		l.ForEach(func(k iregoter.ID, v *regoterInCore) {
 			e := iregoter.CoreEventUpdateTick{}
 			v.tx <- e
 		})
@@ -89,7 +89,7 @@ func (g *Core) eventHandleGameEventTick(e iregoter.GameEventTick) {
 func (g *Core) eventHandleGameEventCfgChanged(e iregoter.GameEventCfgChanged) {
 	g.cfg = e.Cfg
 	for _, l := range g.rgs {
-		l.ForEach(func(k iregoter.ID, v regoterInCore) {
+		l.ForEach(func(k iregoter.ID, v *regoterInCore) {
 			v.tx <- e
 		})
 	}
@@ -124,7 +124,7 @@ func (g *Core) eventHandleNewRegoter(e iregoter.RegoterEventNewRegoter) {
 	rg.sprite = sprite
 	rg.state.Unregistered = false
 	rg.state.HasCollision = false
-	g.rgs[rg.rgType].Insert(d.Entity.RgId, rg)
+	g.rgs[rg.rgType].Insert(d.Entity.RgId, &rg)
 }
 
 // func (g *Core) eventHandleUpdatedImg(e iregoter.RegoterEventUpdatedImg) {
@@ -136,7 +136,7 @@ func (g *Core) findRegoter(id iregoter.ID) (*regoterInCore, bool) {
 	for _, l := range g.rgs {
 		r := l.Find(id)
 		if r != nil {
-			return r, true
+			return *r, true
 		}
 	}
 	return nil, false
@@ -262,7 +262,7 @@ func (g *Core) removeAllUnregisteredRogeter() {
 	for _, l := range g.rgs {
 		ids := make([]iregoter.ID, l.Len())
 		index := 0
-		l.ForEach(func(id iregoter.ID, val regoterInCore) {
+		l.ForEach(func(id iregoter.ID, val *regoterInCore) {
 			if val.state.Unregistered {
 				ids[index] = id
 				index++
@@ -275,6 +275,7 @@ func (g *Core) removeAllUnregisteredRogeter() {
 }
 
 func (g *Core) process(e iregoter.IRegoterEvent) error {
+	// logger.Print(fmt.Sprintf("core event recv %T", e))
 	switch e.(type) {
 	case iregoter.EventDebugPrint:
 		g.eventHandleEventDebugPrint(e.(iregoter.EventDebugPrint))
@@ -323,9 +324,9 @@ func NewCore(cfg *iregoter.GameCfg) (iregoter.RgTxMsgbox, iregoter.RgRxMsgbox) {
 	c := make(chan iregoter.IRegoterEvent)
 	g := make(chan iregoter.ICoreEvent)
 
-	var rgs [len(allRegoterEnum)]*stl4go.SkipList[iregoter.ID, regoterInCore]
+	var rgs [len(allRegoterEnum)]*stl4go.SkipList[iregoter.ID, *regoterInCore]
 	for i := 0; i < len(rgs); i++ {
-		rgs[i] = stl4go.NewSkipList[iregoter.ID, regoterInCore]()
+		rgs[i] = stl4go.NewSkipList[iregoter.ID, *regoterInCore]()
 	}
 
 	// var imgs [len(imgLayerPriorities)]*stl4go.DList[iregoter.RegoterUpdatedImg]

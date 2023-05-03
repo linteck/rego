@@ -18,11 +18,11 @@ const (
 type RegoterEnum int
 
 const (
-	RegoterEnumPlayer RegoterEnum = iota
-	RegoterEnumSprite
+	RegoterEnumSprite RegoterEnum = iota
 	RegoterEnumProjectile
 	RegoterEnumEffect
 	RegoterEnumCrosshair
+	RegoterEnumPlayer
 )
 
 type GameEventUpdateRegoter struct {

@@ -30,7 +30,7 @@ type Regoter[T IThing] struct {
 }
 
 func (r *Regoter[T]) process(e iregoter.ICoreEvent) error {
-	//logger.Print(fmt.Sprintf("(%v) recv %T", r.id, e))
+	// logger.Print(fmt.Sprintf("(%v) recv %T", r.thing.GetData().Entity.RgId, e))
 	switch e.(type) {
 	case iregoter.CoreEventUpdateTick:
 		r.eventHandleUpdateTick(e.(iregoter.CoreEventUpdateTick))
