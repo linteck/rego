@@ -112,9 +112,10 @@ func NewGame() *Game {
 	// create crosshairs and weapon
 	model.NewCrosshairs(txToCore)
 	model.NewPlayer(txToCore)
-	for i := 0; i < 2; i++ {
-		model.NewSorcerer(txToCore)
-		model.NewWalker(txToCore)
+	for i := 0; i < 200; i++ {
+		// model.NewSorcerer(txToCore)
+		// model.NewWalker(txToCore)
+		model.NewBat(txToCore)
 	}
 
 	// Todo

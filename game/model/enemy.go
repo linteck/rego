@@ -20,6 +20,7 @@ type Enemy struct {
 func NewEnemy(coreMsgbox chan<- iregoter.IRegoterEvent,
 	po iregoter.Position, di iregoter.DrawInfo, scale float64,
 	cp iregoter.CollisionSpace, velocity float64,
+	anchor raycaster.SpriteAnchor,
 ) *Regoter[*Enemy] {
 	//loadEnemyResource()
 	entity := iregoter.Entity{
@@ -28,7 +29,7 @@ func NewEnemy(coreMsgbox chan<- iregoter.IRegoterEvent,
 		Position:        po,
 		Scale:           scale,
 		MapColor:        yellow,
-		Anchor:          raycaster.AnchorBottom,
+		Anchor:          anchor,
 		CollisionRadius: cp.CollisionRadius,
 		CollisionHeight: cp.CollisionHeight,
 		Velocity:        velocity,
@@ -125,6 +126,7 @@ func NewSorcerer(txToCore iregoter.RgTxMsgbox) {
 			CollisionHeight: collisionHeight,
 		},
 		sorcVelocity,
+		raycaster.AnchorBottom,
 	)
 	// log.Printf("%v, %v", collisionRadius, collisionHeight)
 
@@ -176,7 +178,66 @@ func NewWalker(txToCore iregoter.RgTxMsgbox) {
 			CollisionHeight: walkerCollisionHeight,
 		},
 		walkerVelocity,
+		raycaster.AnchorBottom,
 	)
 
 	// log.Printf("%v, %v", walkerCollisionRadius, walkerCollisionHeight)
+}
+
+func NewBat(txToCore iregoter.RgTxMsgbox) {
+	// animated flying 4-directional sprite creature
+	// [batTexFacingMap] player facing angle : texture row index
+	var batTexFacingMap = map[float64]int{
+		geom.Radians(270): 1,
+		geom.Radians(180): 2,
+		geom.Radians(90):  3,
+		geom.Radians(0):   0,
+	}
+	batImg := loader.GetSpriteFromFile("bat_sheet.png")
+	batWidth, batHeight := batImg.Bounds().Dx(), batImg.Bounds().Dy()
+	batCols, batRows := 3, 4
+	batScale := 0.25
+	// in pixels, radius and height to use for collision testing
+	batPxRadius, batPxHeight := 14.0, 25.0
+	// convert pixel to grid using image pixel size
+	batCollisionRadius := (batScale * batPxRadius) / (float64(batWidth) / float64(batCols))
+	batCollisionHeight := (batScale * batPxHeight) / (float64(batHeight) / float64(batRows))
+	// raising Z-position of sprite model but using raycaster.AnchorTop to show below that position
+	// give sprite a sample velocity for movement
+	batVelocity := 0.03
+
+	// if g.debug {
+	// 	// just some debugging stuff
+	// 	sorc.AddDebugLines(2, color.RGBA{0, 255, 0, 255})
+	// 	walker.AddDebugLines(2, color.RGBA{0, 255, 0, 255})
+	// 	batty.AddDebugLines(2, color.RGBA{0, 255, 0, 255})
+	// 	chargedBoltProjectile.AddDebugLines(2, color.RGBA{0, 255, 0, 255})
+	// 	redBoltProjectile.AddDebugLines(2, color.RGBA{0, 255, 0, 255})
+	// }
+
+	cnt += 1
+	y := float64(2+cnt/100)*batCollisionRadius*4 + batCollisionRadius*40
+	x := float64(2+cnt%100) * batCollisionRadius * 4
+
+	NewEnemy(txToCore,
+		iregoter.Position{X: x, Y: y, Z: 3},
+		iregoter.DrawInfo{
+			Img:               batImg,
+			ImgLayer:          iregoter.ImgLayerSprite,
+			Columns:           batCols,
+			Rows:              batRows,
+			AnimationRate:     5,
+			AnimationReversed: true,
+			TexFacingMap:      &batTexFacingMap,
+		},
+		batScale,
+		iregoter.CollisionSpace{
+			CollisionRadius: batCollisionRadius,
+			CollisionHeight: batCollisionHeight,
+		},
+		batVelocity,
+		raycaster.AnchorTop,
+	)
+
+	// log.Printf("%v, %v", batCollisionRadius, batCollisionHeight)
 }
