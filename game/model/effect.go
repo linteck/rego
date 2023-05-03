@@ -30,7 +30,7 @@ func NewAnimatedEffect(
 	return e
 }
 
-func NewEffect(x float64, y float64, z float64, angle iregoter.RotateAngle, pitch iregoter.PitchAngle) *Effect {
+func NewEffect(x float64, y float64, z float64, angle float64, pitch float64) *Effect {
 	e := &Effect{}
 	// s := &iregoter.Sprite{}
 	// copier.Copy(e, p.ImpactEffect)

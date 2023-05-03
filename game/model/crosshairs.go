@@ -10,7 +10,6 @@ import (
 
 type Crosshairs struct {
 	rgData iregoter.RegoterData
-	health int
 }
 
 func NewCrosshairs(coreMsgbox chan<- iregoter.IRegoterEvent) *Regoter[*Crosshairs] {
@@ -54,16 +53,15 @@ func NewCrosshairs(coreMsgbox chan<- iregoter.IRegoterEvent) *Regoter[*Crosshair
 // 	return c.HitIndicator != nil && c.hitTimer > 0
 // }
 
-func (c *Crosshairs) Update(cu iregoter.RgTxMsgbox, rgEntity iregoter.Entity,
-	playEntiry iregoter.Entity, rgState iregoter.RegoterState) {
+func (c *Crosshairs) UpdateTick(cu iregoter.RgTxMsgbox) {
+
+}
+
+func (c *Crosshairs) UpdateData(cu iregoter.RgTxMsgbox, rgEntity iregoter.Entity,
+	rgState iregoter.RegoterState) {
 
 	c.rgData.Entity = rgEntity
 
-	c.health -= rgState.HitHarm
-	if c.health <= 0 {
-		// Send Unregister to show 'Die'
-		cu <- iregoter.RegoterEventRegoterUnregister{RgId: c.rgData.Entity.RgId}
-	}
 	// draw crosshairs
 	// op := &ebiten.DrawImageOptions{}
 	// op.Filter = ebiten.FilterNearest

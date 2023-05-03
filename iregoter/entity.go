@@ -18,9 +18,10 @@ type Entity struct {
 	Position        Position
 	Scale           float64
 	Anchor          raycaster.SpriteAnchor
-	Angle           RotateAngle
-	Pitch           PitchAngle
+	Angle           float64
+	Pitch           float64
 	Velocity        float64
+	LastMoveRotate  float64
 	CollisionRadius float64
 	CollisionHeight float64
 	MapColor        color.RGBA

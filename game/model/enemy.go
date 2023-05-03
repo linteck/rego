@@ -3,7 +3,6 @@ package model
 import (
 	"image/color"
 	"lintech/rego/iregoter"
-	"log"
 
 	"github.com/harbdog/raycaster-go"
 	"github.com/harbdog/raycaster-go/geom"
@@ -31,7 +30,7 @@ func NewEnemy(coreMsgbox chan<- iregoter.IRegoterEvent,
 		CollisionRadius: cp.CollisionRadius,
 		CollisionHeight: cp.CollisionHeight,
 		Velocity:        velocity,
-		Angle:           iregoter.RotateAngle(0.25 * geom.Pi),
+		Angle:           0.25 * geom.Pi,
 	}
 	t := &Enemy{
 		rgData: iregoter.RegoterData{
@@ -51,14 +50,19 @@ func NewEnemy(coreMsgbox chan<- iregoter.IRegoterEvent,
 // 	}
 // }
 
-// func (c *Enemy) IsHitIndicatorActive() bool {
-// 	return c.HitIndicator != nil && c.hitTimer > 0
-// }
+//	func (c *Enemy) IsHitIndicatorActive() bool {
+//		return c.HitIndicator != nil && c.hitTimer > 0
+//	}
+func (c *Enemy) UpdateTick(cu iregoter.RgTxMsgbox) {
 
-func (c *Enemy) Update(cu iregoter.RgTxMsgbox, rgEntity iregoter.Entity,
-	playEntiry iregoter.Entity, rgState iregoter.RegoterState) {
+}
 
-	log.Printf("enemy: %+v", rgEntity)
+func (c *Enemy) UpdateData(cu iregoter.RgTxMsgbox, rgEntity iregoter.Entity,
+	rgState iregoter.RegoterState) {
+
+	c.rgData.Entity = rgEntity
+
+	//log.Printf("enemy: %+v", rgEntity)
 	c.health -= rgState.HitHarm
 	if c.health <= 0 {
 		// Send Unregister to show 'Die'
@@ -66,7 +70,7 @@ func (c *Enemy) Update(cu iregoter.RgTxMsgbox, rgEntity iregoter.Entity,
 	}
 
 	e := iregoter.RegoterEventUpdatedMove{RgId: c.rgData.Entity.RgId,
-		Move: iregoter.RegoterMove{RotateSpeed: 0, MoveSpeed: 0, PitchSpeed: 0}}
+		Move: iregoter.RegoterMove{MoveRotate: 0, Acceleration: 0, PitchRotate: 0}}
 	cu <- e
 }
 

@@ -11,15 +11,10 @@ import (
 
 func (g *Core) eventHandleGameEventDraw(e iregoter.GameEventDraw) {
 
-	// for _, l := range g.imgs {
-	// 	l.ForEach(func(v iregoter.RegoterUpdatedImg) {
-	// 		e.Screen.DrawImage(v.Img, v.ImgOp)
-	// 	})
-	// 	l.Clear()
-	// }
 	g.drawScreen(e.Screen)
 
-	g.removeAllUnregisteredRogeter()
+	// Debug
+	// g.removeAllUnregisteredRogeter()
 	r := iregoter.CoreEventDrawDone{}
 	g.txToGame <- r
 

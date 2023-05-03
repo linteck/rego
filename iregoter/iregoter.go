@@ -25,7 +25,7 @@ const (
 	RegoterEnumCrosshair
 )
 
-type GameEventTick struct {
+type GameEventUpdateRegoter struct {
 }
 
 type GameEventDraw struct {
@@ -38,16 +38,18 @@ type CoreEventDrawDone struct {
 type ICoreEvent interface {
 }
 
-// type ScreenSize struct {
-// 	Width  int
-// 	Height int
-// }
-
+//	type ScreenSize struct {
+//		Width  int
+//		Height int
+//	}
 type CoreEventUpdateTick struct {
-	RgEntity   Entity
-	PlayEntiry Entity
-	RgState    RegoterState
 }
+type CoreEventUpdateData struct {
+	RgEntity Entity
+	RgState  RegoterState
+}
+
+type GameEventTick struct{}
 
 type IRegoterEvent interface {
 }
@@ -79,14 +81,13 @@ type RegoterUpdatedConfig struct {
 // 	Info RegoterUpdatedImg
 // }
 
-type RotateAngle float64
-type Distance float64
-type PitchAngle float64
-
 type RegoterMove struct {
-	RotateSpeed RotateAngle
-	MoveSpeed   Distance
-	PitchSpeed  PitchAngle
+	MoveRotate    float64
+	PitchRotate   float64
+	Acceleration  float64
+	Velocity      float64
+	VissionRotate float64
+	FireWeapon    bool
 }
 
 type RegoterEventUpdatedMove struct {

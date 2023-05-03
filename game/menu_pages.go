@@ -227,7 +227,7 @@ func renderPage(menu *DemoMenu) *page {
 	)
 	c.AddChild(distanceRow)
 
-	distanceLabel := widget.NewLabel(widget.LabelOpts.Text("Render Distance",
+	distanceLabel := widget.NewLabel(widget.LabelOpts.Text("Render float64",
 		res.label.face, res.label.text))
 	distanceRow.AddChild(distanceLabel)
 

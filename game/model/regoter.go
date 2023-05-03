@@ -17,8 +17,9 @@ var logger = log.New(os.Stderr, "Regoter ", 0)
 
 type IThing interface {
 	GetData() iregoter.RegoterData
-	Update(c iregoter.RgTxMsgbox, rgEntity iregoter.Entity,
-		playEntiry iregoter.Entity, state iregoter.RegoterState)
+	UpdateTick(c iregoter.RgTxMsgbox)
+	UpdateData(c iregoter.RgTxMsgbox, rgEntity iregoter.Entity,
+		state iregoter.RegoterState)
 	SetConfig(cfg iregoter.GameCfg)
 }
 
@@ -32,7 +33,9 @@ func (r *Regoter[T]) process(e iregoter.ICoreEvent) error {
 	//logger.Print(fmt.Sprintf("(%v) recv %T", r.id, e))
 	switch e.(type) {
 	case iregoter.CoreEventUpdateTick:
-		r.eventHandleUpdate(e.(iregoter.CoreEventUpdateTick))
+		r.eventHandleUpdateTick(e.(iregoter.CoreEventUpdateTick))
+	case iregoter.CoreEventUpdateData:
+		r.eventHandleUpdateData(e.(iregoter.CoreEventUpdateData))
 	case iregoter.GameEventCfgChanged:
 		r.eventHandleCfgChanged(e.(iregoter.GameEventCfgChanged))
 	default:
@@ -43,8 +46,13 @@ func (r *Regoter[T]) process(e iregoter.ICoreEvent) error {
 
 // Update the position and status of Regoter
 // And send new Position and status to IGame
-func (r *Regoter[T]) eventHandleUpdate(e iregoter.CoreEventUpdateTick) error {
-	r.thing.Update(r.txChan, e.RgEntity, e.PlayEntiry, e.RgState)
+func (r *Regoter[T]) eventHandleUpdateData(e iregoter.CoreEventUpdateData) error {
+	r.thing.UpdateData(r.txChan, e.RgEntity, e.RgState)
+	return nil
+}
+
+func (r *Regoter[T]) eventHandleUpdateTick(e iregoter.CoreEventUpdateTick) error {
+	r.thing.UpdateTick(r.txChan)
 	return nil
 }
 

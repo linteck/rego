@@ -83,7 +83,7 @@ func (p *Projectile) Update(cu iregoter.RgTxMsgbox, rgEntity *iregoter.Entity,
 // 	delete(g.projectiles, projectile)
 // }
 
-func SpawnProjectile(w Weapon, x float64, y float64, z float64, angle iregoter.RotateAngle, pitch iregoter.PitchAngle,
+func SpawnProjectile(w Weapon, x float64, y float64, z float64, angle float64, pitch float64,
 	spawnedBy *iregoter.Entity) *Projectile {
 	p := &Projectile{}
 	copier.Copy(p, w.projectile)

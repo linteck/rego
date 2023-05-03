@@ -65,16 +65,26 @@ type Core struct {
 }
 
 func (g *Core) eventHandleGameEventTick(e iregoter.GameEventTick) {
-	player := g.rgs[iregoter.RegoterEnumPlayer].Iterate().Value()
 	for _, l := range g.rgs {
 		l.ForEach(func(k iregoter.ID, v regoterInCore) {
-			e := iregoter.CoreEventUpdateTick{RgEntity: v.entity, PlayEntiry: player.entity,
-				RgState: v.state}
+			e := iregoter.CoreEventUpdateTick{}
 			v.tx <- e
 		})
 	}
 	// logger.Print(fmt.Sprintf("current rg num %v", g.rgs.Len()))
 }
+
+// func (g *Core) eventHandleGameEventTick(e iregoter.GameEventTick) {
+// 	player := g.rgs[iregoter.RegoterEnumPlayer].Iterate().Value()
+// 	for _, l := range g.rgs {
+// 		l.ForEach(func(k iregoter.ID, v regoterInCore) {
+// 			e := iregoter.CoreEventUpdateData{RgEntity: v.entity, PlayEntiry: player.entity,
+// 				RgState: v.state}
+// 			v.tx <- e
+// 		})
+// 	}
+// 	// logger.Print(fmt.Sprintf("current rg num %v", g.rgs.Len()))
+// }
 
 func (g *Core) eventHandleGameEventCfgChanged(e iregoter.GameEventCfgChanged) {
 	g.cfg = e.Cfg
@@ -102,6 +112,7 @@ func (g *Core) eventHandleNewRegoter(e iregoter.RegoterEventNewRegoter) {
 	}
 	var sprite *iregoter.Sprite
 	if rg.di.AnimationRate != 0 {
+		logger.Printf("Created %+v with AnimationRate %+v", rg.entity.RgId, rg.di)
 		sprite = iregoter.NewAnimatedSprite(&rg.entity, rg.di.Img,
 			rg.di.Columns, rg.di.Rows, rg.di.AnimationRate)
 	} else {
@@ -141,22 +152,18 @@ func (g *Core) eventHandleUpdatedMove(e iregoter.RegoterEventUpdatedMove) {
 				g.updatePlayerCamera(&p.entity, moved, false)
 			}
 		}
+		e := iregoter.CoreEventUpdateData{RgEntity: p.entity, RgState: p.state}
+		p.tx <- e
 	}
 }
 
 func (g *Core) eventHandleUpdated3DMove(p *regoterInCore, e iregoter.RegoterEventUpdatedMove) bool {
 	pe := &p.entity
 
-	mSpeed := float64(e.Move.MoveSpeed)
-	velocity := pe.Velocity + mSpeed
-
-	rotateSpeed := e.Move.RotateSpeed
-	mAngle := float64(pe.Angle + rotateSpeed)
-	mAngle = simplifyAngle(mAngle)
-
-	pitchSpeed := e.Move.PitchSpeed
-	mPitch := float64(pe.Pitch + pitchSpeed)
-	mPitch = simplifyAngle(mPitch)
+	velocity := pe.Velocity + e.Move.Acceleration
+	vAngle := simplifyAngle(pe.Angle + e.Move.VissionRotate)
+	mAngle := simplifyAngle(vAngle + e.Move.MoveRotate)
+	mPitch := simplifyAngle(pe.Pitch + e.Move.PitchRotate)
 
 	moved := false
 	if math.Abs(velocity) > model.MinimumVelocity {
@@ -188,10 +195,11 @@ func (g *Core) eventHandleUpdated3DMove(p *regoterInCore, e iregoter.RegoterEven
 		}
 	}
 
-	if mAngle != float64(pe.Angle) || mPitch != float64(pe.Pitch) || velocity != pe.Velocity {
-		pe.Angle = iregoter.RotateAngle(mAngle)
-		pe.Pitch = iregoter.PitchAngle(geom.Clamp(mPitch, -math.Pi/8, math.Pi/4))
+	if vAngle != float64(pe.Angle) || mPitch != float64(pe.Pitch) || velocity != pe.Velocity {
+		pe.Angle = vAngle
+		pe.Pitch = geom.Clamp(mPitch, -math.Pi/8, math.Pi/4)
 		pe.Velocity = limitVelocity(velocity, model.MaximumVelocity)
+		pe.LastMoveRotate = e.Move.MoveRotate
 		moved = true
 	}
 
@@ -200,20 +208,14 @@ func (g *Core) eventHandleUpdated3DMove(p *regoterInCore, e iregoter.RegoterEven
 
 func (g *Core) eventHandleUpdated2DMove(p *regoterInCore, e iregoter.RegoterEventUpdatedMove) bool {
 	pe := &p.entity
-	mSpeed := float64(e.Move.MoveSpeed)
-	velocity := pe.Velocity + mSpeed
-
-	rotateSpeed := e.Move.RotateSpeed
-	mAngle := float64(pe.Angle + rotateSpeed)
-	mAngle = simplifyAngle(mAngle)
-
-	pitchSpeed := e.Move.PitchSpeed
-	mPitch := float64(pe.Pitch + pitchSpeed)
-	mPitch = simplifyAngle(mPitch)
+	velocity := pe.Velocity + e.Move.Acceleration
+	vAngle := simplifyAngle(pe.Angle + e.Move.VissionRotate)
+	mAngle := simplifyAngle(vAngle + e.Move.MoveRotate)
+	mPitch := simplifyAngle(pe.Pitch + e.Move.PitchRotate)
 
 	moved := false
 	if math.Abs(velocity) > model.MinimumVelocity {
-		moveLine := geom.LineFromAngle(pe.Position.X, pe.Position.Y, float64(pe.Angle), velocity)
+		moveLine := geom.LineFromAngle(pe.Position.X, pe.Position.Y, float64(mAngle), velocity)
 
 		newPos, collision, _ := g.getValidMove(pe, moveLine.X2, moveLine.Y2, pe.Position.Z, true)
 		p.state.HasCollision = collision
@@ -224,10 +226,11 @@ func (g *Core) eventHandleUpdated2DMove(p *regoterInCore, e iregoter.RegoterEven
 			pe.Position.Y = newPos.Y
 		}
 	}
-	if mAngle != float64(pe.Angle) || mPitch != float64(pe.Pitch) || velocity != pe.Velocity {
-		pe.Angle = iregoter.RotateAngle(mAngle)
-		pe.Pitch = iregoter.PitchAngle(geom.Clamp(mPitch, -math.Pi/8, math.Pi/4))
+	if vAngle != float64(pe.Angle) || mPitch != float64(pe.Pitch) || velocity != pe.Velocity {
+		pe.Angle = vAngle
+		pe.Pitch = geom.Clamp(mPitch, -math.Pi/8, math.Pi/4)
 		pe.Velocity = limitVelocity(velocity, model.MaximumVelocity)
+		pe.LastMoveRotate = e.Move.MoveRotate
 		moved = true
 	}
 	return moved
@@ -277,16 +280,19 @@ func (g *Core) process(e iregoter.IRegoterEvent) error {
 		g.eventHandleEventDebugPrint(e.(iregoter.EventDebugPrint))
 	case iregoter.GameEventTick:
 		g.eventHandleGameEventTick(e.(iregoter.GameEventTick))
+
 	case iregoter.GameEventCfgChanged:
 		g.eventHandleGameEventCfgChanged(e.(iregoter.GameEventCfgChanged))
 	case iregoter.GameEventDraw:
 		g.eventHandleGameEventDraw(e.(iregoter.GameEventDraw))
+
 	case iregoter.RegoterEventNewRegoter:
 		g.eventHandleNewRegoter(e.(iregoter.RegoterEventNewRegoter))
 	case iregoter.RegoterEventRegoterUnregister:
 		g.eventHandleRegoterUnregister(e.(iregoter.RegoterEventRegoterUnregister))
 	// case iregoter.RegoterEventUpdatedImg:
 	// 	g.eventHandleUpdatedImg(e.(iregoter.RegoterEventUpdatedImg))
+
 	case iregoter.RegoterEventUpdatedMove:
 		g.eventHandleUpdatedMove(e.(iregoter.RegoterEventUpdatedMove))
 	default:

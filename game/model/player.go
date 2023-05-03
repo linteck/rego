@@ -4,9 +4,9 @@ import (
 	"image/color"
 	"lintech/rego/game/loader"
 	"lintech/rego/iregoter"
+	"log"
 	"math"
 
-	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/harbdog/raycaster-go/geom"
 )
 
@@ -28,7 +28,6 @@ type Player struct {
 	LastWeapon *Weapon
 
 	// Movement in this tick
-	movement iregoter.RegoterMove
 }
 
 func NewPlayer(coreMsgbox chan<- iregoter.IRegoterEvent) *Regoter[*Player] {
@@ -37,7 +36,7 @@ func NewPlayer(coreMsgbox chan<- iregoter.IRegoterEvent) *Regoter[*Player] {
 		RgType:          iregoter.RegoterEnumPlayer,
 		Position:        iregoter.Position{X: 8.5, Y: 3.5, Z: 0},
 		Scale:           1,
-		Angle:           iregoter.RotateAngle(geom.Radians(60.0)),
+		Angle:           geom.Radians(60.0),
 		Pitch:           0,
 		Velocity:        0,
 		MapColor:        color.RGBA{0, 255, 0, 255},
@@ -74,8 +73,8 @@ func NewPlayer(coreMsgbox chan<- iregoter.IRegoterEvent) *Regoter[*Player] {
 
 type playerSheet struct {
 	x, y  float64
-	angle iregoter.RotateAngle
-	pitch iregoter.PitchAngle
+	angle float64
+	pitch float64
 }
 
 func (p *Player) AddWeapon(w *Weapon) {
@@ -143,39 +142,35 @@ func (p *Player) getSelectedWeapon() (*Weapon, int) {
 	return p.Weapon, p.getWeaponIndex(p.Weapon)
 }
 
-func (p *Player) Update(cu iregoter.RgTxMsgbox, rgEntity iregoter.Entity,
-	playentity iregoter.Entity, rgState iregoter.RegoterState) {
+func isMoving(m iregoter.RegoterMove) bool {
+	if math.Abs(float64(m.Acceleration)) > MinimumVelocity ||
+		math.Abs(float64(m.Velocity)) > MinimumVelocity ||
+		m.MoveRotate != 0 || m.PitchRotate != 0 ||
+		m.VissionRotate != 0 {
+		return true
+	} else {
+		return false
+	}
+}
 
+func (p *Player) UpdateTick(cu iregoter.RgTxMsgbox) {
 	// Debug
-	p.rgData.Entity = rgEntity
-	p.movement = iregoter.RegoterMove{}
-	p.handleInput(false, &p.mouse)
-	// draw crosshairs
-	op := &ebiten.DrawImageOptions{}
-	op.Filter = ebiten.FilterNearest
+	movement := handlePlayerInput(p.cfg, &p.mouse)
 
 	// Slow down Velocity
-	if math.Abs(float64(p.movement.MoveSpeed)) < MinimumVelocity {
+	if math.Abs(float64(movement.Acceleration)) < MinimumVelocity {
 		if math.Abs(float64(p.rgData.Entity.Velocity)) > MinimumVelocity {
-			p.movement.MoveSpeed = iregoter.Distance(-p.rgData.Entity.Velocity * 0.1)
+			movement.Acceleration = -p.rgData.Entity.Velocity * 0.1
+			movement.MoveRotate = p.rgData.Entity.LastMoveRotate
 		}
 	}
+	movement.Velocity = p.rgData.Entity.Velocity
 
-	if rgEntity.Position.X != p.rgData.Entity.Position.X ||
-		rgEntity.Position.Y != p.rgData.Entity.Position.Y ||
-		rgEntity.Pitch != p.rgData.Entity.Pitch ||
-		rgEntity.Angle != p.rgData.Entity.Angle {
-
-		p.Moved = true
-	} else {
-		p.Moved = false
+	if isMoving(movement) {
+		log.Printf("%+v", movement)
+		e := iregoter.RegoterEventUpdatedMove{RgId: p.rgData.Entity.RgId, Move: movement}
+		cu <- e
 	}
-
-	// de := iregoter.EventDebugPrint{DebugString: fmt.Sprintf("%+v", p.movement)}
-	// cu <- de
-
-	e := iregoter.RegoterEventUpdatedMove{RgId: p.rgData.Entity.RgId, Move: p.movement}
-	cu <- e
 	// if info, ok := p.drawWeapon(screenSize); ok {
 	// 	cu <- info
 	// }
@@ -188,31 +183,39 @@ func (p *Player) Update(cu iregoter.RgTxMsgbox, rgEntity iregoter.Entity,
 	// }
 }
 
-// Move player by move speed in the forward/backward direction
-func (p *Player) Move(mSpeed iregoter.Distance) {
-	p.movement.MoveSpeed = mSpeed
+func (p *Player) UpdateData(cu iregoter.RgTxMsgbox, rgEntity iregoter.Entity,
+	rgState iregoter.RegoterState) {
+	// Debug
+	p.rgData.Entity = rgEntity
+	// if rgState.HasCollision {
+	// }
 }
 
-// Move player by strafe speed in the left/right direction
-func (p *Player) Strafe(sSpeed iregoter.Distance) {
-	var strafeAngle iregoter.RotateAngle = geom.Pi / 8.0
-	if sSpeed < 0 {
-		strafeAngle = -strafeAngle
-	}
-	p.movement.RotateSpeed = strafeAngle
-	p.movement.MoveSpeed = sSpeed
-}
+// // Move player by move speed in the forward/backward direction
+// func (p *Player) Move(mSpeed float64) {
+// 	p.movement.Acceleration = mSpeed
+// }
 
-// Rotate player heading angle by rotation speed
-func (p *Player) Rotate(rSpeed iregoter.RotateAngle) {
-	p.movement.RotateSpeed = rSpeed
-}
+// // Move player by strafe speed in the left/right direction
+// func (p *Player) Strafe(sSpeed float64) {
+// 	var strafeAngle float64 = geom.HalfPi
+// 	if sSpeed < 0 {
+// 		strafeAngle = -strafeAngle
+// 	}
+// 	p.movement.RotateSpeed = strafeAngle
+// 	p.movement.Acceleration = sSpeed
+// }
 
-// Update player pitch angle by pitch speed
-func (p *Player) Pitch(pSpeed iregoter.PitchAngle) {
-	// current raycasting method can only allow up to 22.5 degrees down, 45 degrees up
-	p.movement.PitchSpeed = pSpeed
-}
+// // Rotate player heading angle by rotation speed
+// func (p *Player) Rotate(rSpeed float64) {
+// 	p.movement.RotateSpeed = rSpeed
+// }
+
+// // Update player pitch angle by pitch speed
+// func (p *Player) Pitch(pSpeed float64) {
+// 	// current raycasting method can only allow up to 22.5 degrees down, 45 degrees up
+// 	p.movement.PitchSpeed = pSpeed
+// }
 
 func (p *Player) Stand() {
 	p.CameraZ = 0.5
