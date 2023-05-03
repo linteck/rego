@@ -241,3 +241,38 @@ func NewBat(txToCore iregoter.RgTxMsgbox) {
 
 	// log.Printf("%v, %v", batCollisionRadius, batCollisionHeight)
 }
+
+func NewRock(txToCore iregoter.RgTxMsgbox) {
+	// rock that can be jumped over but not walked through
+	rockImg := loader.GetSpriteFromFile("large_rock.png")
+	rockWidth, rockHeight := rockImg.Bounds().Dx(), rockImg.Bounds().Dy()
+	rockScale := 0.4
+	rockPxRadius, rockPxHeight := 24.0, 35.0
+	rockCollisionRadius := (rockScale * rockPxRadius) / float64(rockWidth)
+	rockCollisionHeight := (rockScale * rockPxHeight) / float64(rockHeight)
+
+	rockCols, rockRows := 1, 1
+	rockVelocity := 0.0
+
+	x := 8.0
+	y := 5.5
+
+	NewEnemy(txToCore,
+		iregoter.Position{X: x, Y: y, Z: 0},
+		iregoter.DrawInfo{
+			Img:      rockImg,
+			ImgLayer: iregoter.ImgLayerSprite,
+			Columns:  rockCols,
+			Rows:     rockRows,
+		},
+		rockScale,
+		iregoter.CollisionSpace{
+			CollisionRadius: rockCollisionRadius,
+			CollisionHeight: rockCollisionHeight,
+		},
+		rockVelocity,
+		raycaster.AnchorBottom,
+	)
+	// log.Printf("%v, %v", collisionRadius, collisionHeight)
+
+}
