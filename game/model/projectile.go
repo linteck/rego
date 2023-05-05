@@ -41,11 +41,13 @@ func (r *Projectile) eventHandleUnknown(sender RcTx, e IReactorEvent) error {
 	return nil
 }
 func (c *Projectile) eventHandleUpdateTick(sender RcTx, e EventUpdateTick) {
+	c.lifespan -= 1
 
-	if e.RgState.HasCollision {
-		c.effect.Spawn(sender)
+	if e.RgState.HasCollision || c.lifespan < 0 {
+		log.Printf("C %v, L %v, Z %v", e.RgState.HasCollision, c.lifespan, e.RgEntity.Position.Z)
 		m := ReactorEventMessage{c.tx, EventUnregisterRegoter{RgId: c.rgData.Entity.RgId}}
 		sender <- m
+		c.effect.Spawn(sender, e.RgEntity.Position)
 		c.running = false
 	} else {
 		m := ReactorEventMessage{c.tx, EventMovement{RgId: c.rgData.Entity.RgId,
@@ -104,7 +106,7 @@ func NewProjectileTemplate(di DrawInfo,
 		},
 		effect:   effect,
 		harm:     harm,
-		lifespan: 100000,
+		lifespan: 100,
 	}
 
 	return t
@@ -127,9 +129,7 @@ func ProjectileChargedBolt(effect *EffectTemplate) *ProjectileTemplate {
 	chargedBoltCollisionRadius := (chargedBoltScale * chargedBoltPxRadius) / (float64(chargedBoltWidth) / float64(chargedBoltCols))
 	chargedBoltCollisionHeight := 2 * chargedBoltCollisionRadius
 	collision := CollisionSpace{chargedBoltCollisionRadius, chargedBoltCollisionHeight}
-	// Debug
-	// chargedBoltVelocity := 6.0 // Velocity (as distance travelled/second)
-	chargedBoltVelocity := 0.2 // Velocity (as distance travelled/second)
+	chargedBoltVelocity := 0.5 // Velocity (as distance travelled/second)
 	chargedBoltProjectile := NewProjectileTemplate(di,
 		chargedBoltScale, collision, chargedBoltVelocity, effect, 1)
 
@@ -153,7 +153,7 @@ func ProjectileRedBolt(effect *EffectTemplate) *ProjectileTemplate {
 	redBoltCollisionRadius := (redBoltScale * redBoltPxRadius) / (float64(redBoltWidth) / float64(redBoltCols))
 	redBoltCollisionHeight := 2 * redBoltCollisionRadius
 	collision := CollisionSpace{redBoltCollisionRadius, redBoltCollisionHeight}
-	redBoltVelocity := 6.0 // Velocity (as distance travelled/second)
+	redBoltVelocity := 0.5 // Velocity (as distance travelled/second)
 	redBoltProjectile := NewProjectileTemplate(di,
 		redBoltScale, collision, redBoltVelocity, effect, 1)
 

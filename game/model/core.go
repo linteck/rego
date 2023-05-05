@@ -103,6 +103,9 @@ func (g *Core) eventHandleGameEventTick(sender RcTx, e EventGameTick) {
 		l.ForEach(func(k ID, v *regoterInCore) {
 			if v.sprite != nil {
 				v.sprite.Update(g.camera.GetPosition())
+				if v.di.AnimationRate > 0 && v.sprite != nil {
+					v.state.AnimationLoopCnt = v.sprite.LoopCounter()
+				}
 			}
 		})
 	}
@@ -161,7 +164,6 @@ func (g *Core) eventHandleRegisterRegoter(sender RcTx, e EventRegisterRegoter) {
 		log.Fatal("Invalid nil Img for ", d.Entity.RgType, d.Entity.RgId)
 	}
 	rg.sprite = createCoreSprite(rg)
-	rg.state.Unregistered = false
 	rg.state.HasCollision = false
 	g.rgs[rg.rgType].Insert(d.Entity.RgId, rg)
 }
@@ -186,9 +188,6 @@ func (g *Core) eventHandleMovement(sender RcTx, e EventMovement) {
 		moved := g.updatedMove(p, sender, e)
 		if moved && (p.rgType == RegoterEnumPlayer) {
 			g.updatePlayerCamera(&p.entity, moved, false)
-		}
-		if p.di.AnimationRate > 0 {
-			p.state.AnimationLoopCnt = p.sprite.LoopCounter()
 		}
 		e := EventUpdateData{RgEntity: p.entity, RgState: p.state}
 		m := ReactorEventMessage{g.tx, e}
@@ -222,8 +221,9 @@ func (g *Core) updatedMove(p *regoterInCore, sender RcTx, e EventMovement) bool 
 		}
 		newPos, hasCollision, _ := g.getValidMove(pe, lineEnd.X, lineEnd.Y, lineEnd.Z, checkAlternate)
 
+		// Debug
 		// Hit ground
-		if pe.Position.Z < 0 {
+		if pe.Position.Z < -1 {
 			hasCollision = true
 		}
 
@@ -264,9 +264,11 @@ func limitVelocity(velocity float64, max float64) float64 {
 }
 
 func (g *Core) eventHandleRegoterUnregister(sender RcTx, e EventUnregisterRegoter) {
-	// Mark Deleted. Only delete it after drawing
-	if rg, ok := g.findRegoter(e.RgId); ok {
-		rg.state.Unregistered = true
+	for _, l := range g.rgs {
+		r := l.Remove(e.RgId)
+		if r {
+			return
+		}
 	}
 }
 
@@ -275,31 +277,12 @@ func (g *Core) eventHandleUnknown(sender RcTx, e IReactorEvent) error {
 	return nil
 }
 
-func (g *Core) removeAllUnregisteredRogeter() {
-	for _, l := range g.rgs {
-		ids := make([]ID, 0, l.Len())
-		l.ForEach(func(id ID, val *regoterInCore) {
-			if val.state.Unregistered {
-				ids = append(ids, id)
-			}
-		})
-		for _, id := range ids {
-			l.Remove(id)
-		}
-	}
-}
-
 func NewCore(cfg GameCfg) RcTx {
 	rc := NewReactorCore()
 	var rgs [len(allRegoterEnum)]*stl4go.SkipList[ID, *regoterInCore]
 	for i := 0; i < len(rgs); i++ {
 		rgs[i] = stl4go.NewSkipList[ID, *regoterInCore]()
 	}
-
-	// var imgs [len(imgLayerPriorities)]*stl4go.DList[RegoterUpdatedImg]
-	// for i := 0; i < len(imgs); i++ {
-	// 	imgs[i] = stl4go.NewDList[RegoterUpdatedImg]()
-	// }
 
 	// load map
 	mapObj := loader.NewMap()

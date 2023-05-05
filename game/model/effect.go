@@ -53,6 +53,7 @@ func NewEffectTemplate(di DrawInfo, scale float64, loopCount int) *EffectTemplat
 			Entity:   entity,
 			DrawInfo: di,
 		},
+		LoopCount: loopCount,
 	}
 
 	return t
@@ -65,7 +66,7 @@ func NewRedExplosionEffect() *EffectTemplate {
 		Columns:       8,
 		Rows:          3,
 	}
-	redExplosionEffect := NewEffectTemplate(di, 0.20, 2)
+	redExplosionEffect := NewEffectTemplate(di, 0.20, 1)
 	return redExplosionEffect
 }
 
@@ -81,6 +82,7 @@ func NewBlueExplosionEffect() *EffectTemplate {
 }
 
 func (ef *Effect) eventHandleUpdateTick(sender RcTx, e EventUpdateTick) {
+	log.Printf("ALC %v", e.RgState.AnimationLoopCnt)
 	if e.RgState.AnimationLoopCnt >= ef.LoopCount {
 		m := ReactorEventMessage{ef.tx, EventUnregisterRegoter{RgId: ef.rgData.Entity.RgId}}
 		sender <- m
@@ -91,13 +93,14 @@ func (ef *Effect) eventHandleUpdateTick(sender RcTx, e EventUpdateTick) {
 func (ef *Effect) eventHandleUpdateData(sender RcTx, e EventUpdateData) {
 }
 
-func NewEffect(coreTx RcTx, et *EffectTemplate) RcTx {
+func NewEffect(coreTx RcTx, et *EffectTemplate, position Position) RcTx {
 	ef := &Effect{
 		Reactor:        NewReactor(),
 		EffectTemplate: *et,
 	}
 	// Don't use ID of Template
 	ef.rgData.Entity.RgId = RgIdGenerator.GenId()
+	ef.rgData.Entity.Position = position
 	//
 	go ef.Reactor.Run(ef)
 	m := ReactorEventMessage{ef.tx, EventRegisterRegoter{ef.tx, ef.rgData}}
@@ -105,8 +108,8 @@ func NewEffect(coreTx RcTx, et *EffectTemplate) RcTx {
 	return ef.tx
 }
 
-func (ef *EffectTemplate) Spawn(coreTx RcTx) {
-	NewEffect(coreTx, ef)
+func (ef *EffectTemplate) Spawn(coreTx RcTx, position Position) {
+	NewEffect(coreTx, ef, position)
 }
 
 func (c *Effect) eventHandleCfgChanged(sender RcTx, e EventCfgChanged) {

@@ -137,7 +137,6 @@ type GameCfg struct {
 // type RgTxMsgbox chan<- IRegoterEvent
 
 type RegoterState struct {
-	Unregistered     bool
 	HasCollision     bool
 	AnimationLoopCnt int
 }

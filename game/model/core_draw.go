@@ -14,8 +14,6 @@ func (g *Core) eventHandleGameEventDraw(sender RcTx, e EventDraw) {
 
 	g.drawScreen(e.Screen)
 
-	// Debug
-	g.removeAllUnregisteredRogeter()
 	m := ReactorEventMessage{g.tx, EventDrawDone{}}
 	sender <- m
 

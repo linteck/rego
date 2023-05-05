@@ -180,8 +180,8 @@ func isMoving(m Movement) bool {
 }
 
 func (p *Player) eventHandleUpdateTick(sender RcTx, e IReactorEvent) {
-	// Debug
 	movement, action := handlePlayerInput(p.cfg, &p.mouse)
+
 	movement.Velocity = p.rgData.Entity.Velocity
 	if !action.KeyPressed {
 		movement.MoveRotate = p.rgData.Entity.LastMoveRotate
