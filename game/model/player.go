@@ -1,7 +1,6 @@
 package model
 
 import (
-	"fmt"
 	"image/color"
 	"lintech/rego/game/loader"
 	"log"
@@ -31,19 +30,7 @@ type Player struct {
 	// Movement in this tick
 }
 
-func (r *Player) Run() {
-	r.running = true
-	var err error
-	for r.running {
-		msg := <-r.rx
-		err = r.process(msg)
-		if err != nil {
-			fmt.Println(err)
-		}
-	}
-}
-
-func (r *Player) process(m ReactorEventMessage) error {
+func (r *Player) ProcessMessage(m ReactorEventMessage) error {
 	// log.Print(fmt.Sprintf("(%v) recv %T", r.thing.GetData().Entity.RgId, e))
 	switch m.event.(type) {
 	case EventUpdateTick:
@@ -83,9 +70,8 @@ func NewPlayer(coreTx RcTx) RcTx {
 		CollisionHeight: 0.5,
 	}
 
-	rc := NewReactor()
 	t := &Player{
-		Reactor: rc,
+		Reactor: NewReactor(),
 		rgData: RegoterData{
 			Entity: entity,
 		},
@@ -99,7 +85,7 @@ func NewPlayer(coreTx RcTx) RcTx {
 	// 	log.Fatal("Invalid nil Img for NewPlayer()")
 	// }
 
-	go t.Run()
+	go t.Reactor.Run(t)
 	m := ReactorEventMessage{t.tx, EventRegisterRegoter{t.tx, t.rgData}}
 	coreTx <- m
 	t.SelectWeapon(coreTx, 0)

@@ -1,7 +1,6 @@
 package model
 
 import (
-	"fmt"
 	"image/color"
 	"lintech/rego/game/loader"
 	"log"
@@ -34,19 +33,7 @@ var (
 	yellow  = color.RGBA{255, 200, 0, 196}
 )
 
-func (r *Weapon) Run() {
-	r.running = true
-	var err error
-	for r.running {
-		msg := <-r.rx
-		err = r.process(msg)
-		if err != nil {
-			fmt.Println(err)
-		}
-	}
-}
-
-func (r *Weapon) process(m ReactorEventMessage) error {
+func (r *Weapon) ProcessMessage(m ReactorEventMessage) error {
 	// log.Print(fmt.Sprintf("(%v) recv %T", r.thing.GetData().Entity.RgId, e))
 	switch m.event.(type) {
 	case EventUpdateTick:
@@ -56,7 +43,7 @@ func (r *Weapon) process(m ReactorEventMessage) error {
 	case EventCfgChanged:
 		r.eventHandleCfgChanged(m.sender, m.event.(EventCfgChanged))
 	case EventFireWeapon:
-		r.eventHandleFireWeapon(m.sender, m.event.(EventInput))
+		r.eventHandleFireWeapon(m.sender, m.event.(EventFireWeapon))
 	default:
 		r.eventHandleUnknown(m.sender, m.event)
 	}
@@ -85,7 +72,7 @@ func (r *Weapon) eventHandleCfgChanged(sender RcTx, e EventCfgChanged) error {
 	return nil
 }
 
-func (r *Weapon) eventHandleFireWeapon(sender RcTx, e EventInput) error {
+func (r *Weapon) eventHandleFireWeapon(sender RcTx, e EventFireWeapon) error {
 	r.fireWeapon = true
 	return nil
 }
@@ -162,11 +149,13 @@ func NewWeaponTemplate(coreTx RcTx, di DrawInfo, scale float64,
 }
 
 func NewWeapon(coreTx RcTx, tp *WeaponTemplate) RcTx {
-	w := Weapon{
+	w := &Weapon{
 		Reactor:        NewReactor(),
 		WeaponTemplate: *tp,
 	}
-	go w.Run()
+	// Don't use ID of Template
+	w.rgData.Entity.RgId = RgIdGenerator.GenId()
+	go w.Reactor.Run(w)
 	m := ReactorEventMessage{w.tx, EventRegisterRegoter{w.tx, w.rgData}}
 	coreTx <- m
 

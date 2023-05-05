@@ -24,9 +24,8 @@ type Game struct {
 	menu   *DemoMenu
 	paused bool
 
-	mouseInfo MousePosition
-	cfg       GameCfg
-	coreTx    RcTx
+	cfg    GameCfg
+	coreTx RcTx
 }
 
 func (r *Game) processMessage() {
@@ -35,7 +34,7 @@ func (r *Game) processMessage() {
 	for moreMsg {
 		select {
 		case msg := <-r.rx:
-			err = r.process(msg)
+			err = r.ProcessMessage(msg)
 			if err != nil {
 				fmt.Println(err)
 			}
@@ -45,7 +44,7 @@ func (r *Game) processMessage() {
 	}
 }
 
-func (r *Game) process(m ReactorEventMessage) error {
+func (r *Game) ProcessMessage(m ReactorEventMessage) error {
 	// log.Print(fmt.Sprintf("(%v) recv %T", r.thing.GetData().Entity.RgId, e))
 	switch m.event.(type) {
 	default:
@@ -63,7 +62,7 @@ func (g *Game) eventHandleUnknown(sender RcTx, e IReactorEvent) error {
 // Update is called every tick (1/60 [s] by default).
 func (g *Game) Update() error {
 	// g.processMessage()
-	g.handleInput(g.mouseInfo)
+	g.handleInput()
 	if !g.paused {
 		m := ReactorEventMessage{g.tx, EventGameTick{}}
 		g.coreTx <- m
@@ -75,6 +74,9 @@ func (g *Game) Update() error {
 }
 
 func (g *Game) Run() {
+	if g.rx == nil || g.tx == nil {
+		log.Fatal("Reactor channel is not initialized!")
+	}
 	g.paused = false
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	log.Print("Start")
@@ -106,11 +108,22 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 	return int(w), int(h)
 }
 
-// NewGame - Allows the game to perform any initialization it needs to before starting to run.
+func NewGame(coreTx RcTx, cfg GameCfg) *Game {
+	//loadCrosshairsResource()
+	t := &Game{
+		Reactor: NewReactor(),
+		cfg:     cfg,
+		coreTx:  coreTx,
+	}
+	t.menu = t.createMenu()
+	return t
+}
+
+// CreateGame - Allows the game to perform any initialization it needs to before starting to run.
 // This is where it can query for any required services and load any non-graphic
 // related content.  Calling base.Initialize will enumerate through any components
 // and initialize them as well.
-func NewGame() *Game {
+func CreateGame() *Game {
 	fmt.Printf("Initializing Game\n")
 	ebiten.SetWindowTitle("Rego Demo")
 	// default TPS is 60
@@ -119,10 +132,9 @@ func NewGame() *Game {
 	rand.Seed(time.Now().UnixNano())
 
 	// initialize Game object
-	g := new(Game)
-	g.initConfig()
-
-	coreTx := NewCore(g.cfg)
+	cfg := initConfig()
+	coreTx := NewCore(cfg)
+	g := NewGame(coreTx, cfg)
 
 	// Todo
 
@@ -140,32 +152,24 @@ func NewGame() *Game {
 	// init the sprites
 	// g.loadSprites()
 
-	if g.cfg.OsType == OsTypeBrowser {
-		// web browser cannot start with cursor captured
-	} else {
-		ebiten.SetCursorMode(ebiten.CursorModeCaptured)
-	}
-
 	// init mouse look mode
-	g.cfg.MouseMode = MouseModeLook
-	g.mouseInfo.X, g.mouseInfo.Y = math.MinInt32, math.MinInt32
 
 	// init menu system
-	g.menu = createMenu(g)
 
 	return g
 }
 
-func (g *Game) initConfig() {
+func initConfig() GameCfg {
 	viper.SetConfigName("demo-config")
 	viper.SetConfigType("json")
 
 	// special behavior needed for wasm play
+	cfg := GameCfg{}
 	switch runtime.GOOS {
 	case "js":
-		g.cfg.OsType = OsTypeBrowser
+		cfg.OsType = OsTypeBrowser
 	default:
-		g.cfg.OsType = OsTypeDesktop
+		cfg.OsType = OsTypeDesktop
 	}
 
 	// setup environment variable with DEMO as prefix (e.g. "export DEMO_SCREEN_VSYNC=false")
@@ -189,7 +193,7 @@ func (g *Game) initConfig() {
 	viper.SetDefault("screen.renderFloor", true)
 	viper.SetDefault("screen.fovDegrees", 68)
 
-	if g.cfg.OsType == OsTypeBrowser {
+	if cfg.OsType == OsTypeBrowser {
 		viper.SetDefault("screen.width", 800)
 		viper.SetDefault("screen.height", 600)
 		viper.SetDefault("screen.renderScale", 0.5)
@@ -200,25 +204,32 @@ func (g *Game) initConfig() {
 	}
 
 	err := viper.ReadInConfig()
-	if err != nil && g.cfg.Debug {
+	if err != nil && cfg.Debug {
 		fmt.Print(err)
 	}
 
 	// get config values
-	g.cfg.ScreenWidth = viper.GetInt("screen.width")
-	g.cfg.Width = g.cfg.ScreenWidth
-	g.cfg.ScreenHeight = viper.GetInt("screen.height")
-	g.cfg.Height = g.cfg.ScreenHeight
-	g.cfg.FovDegrees = viper.GetFloat64("screen.fovDegrees")
-	g.cfg.RenderScale = viper.GetFloat64("screen.renderScale")
-	g.cfg.Fullscreen = viper.GetBool("screen.fullscreen")
-	g.cfg.Vsync = viper.GetBool("screen.vsync")
-	g.cfg.RenderDistance = viper.GetFloat64("screen.renderDistance")
-	g.cfg.RenderFloorTex = viper.GetBool("screen.renderFloor")
-	g.cfg.ShowSpriteBoxes = viper.GetBool("showSpriteBoxes")
-	g.cfg.ShowSpriteBoxes = true
-	g.cfg.Debug = viper.GetBool("debug")
-	g.cfg.Debug = true
+	cfg.ScreenWidth = viper.GetInt("screen.width")
+	cfg.Width = cfg.ScreenWidth
+	cfg.ScreenHeight = viper.GetInt("screen.height")
+	cfg.Height = cfg.ScreenHeight
+	cfg.FovDegrees = viper.GetFloat64("screen.fovDegrees")
+	cfg.RenderScale = viper.GetFloat64("screen.renderScale")
+	cfg.Fullscreen = viper.GetBool("screen.fullscreen")
+	cfg.Vsync = viper.GetBool("screen.vsync")
+	cfg.RenderDistance = viper.GetFloat64("screen.renderDistance")
+	cfg.RenderFloorTex = viper.GetBool("screen.renderFloor")
+	cfg.ShowSpriteBoxes = viper.GetBool("showSpriteBoxes")
+	cfg.ShowSpriteBoxes = true
+	cfg.Debug = viper.GetBool("debug")
+	cfg.Debug = true
+	if cfg.OsType == OsTypeBrowser {
+		// web browser cannot start with cursor captured
+	} else {
+		ebiten.SetCursorMode(ebiten.CursorModeCaptured)
+	}
+	cfg.MouseMode = MouseModeLook
+	return cfg
 }
 
 func (g *Game) SaveConfig() error {
@@ -246,7 +257,9 @@ func (g *Game) SaveConfig() error {
 	return err
 }
 
-func (g *Game) handleInput(si MousePosition) bool {
+var mouse = MousePosition{math.MinInt32, math.MinInt32}
+
+func (g *Game) handleInput() bool {
 	menuKeyPressed := inpututil.IsKeyJustPressed(ebiten.KeyEscape) || inpututil.IsKeyJustPressed(ebiten.KeyF1)
 	if menuKeyPressed {
 		if g.menu.active {

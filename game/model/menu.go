@@ -11,12 +11,11 @@ import (
 )
 
 type DemoMenu struct {
-	active    bool
-	ui        *ebitenui.UI
-	root      *widget.Container
-	res       *uiResources
-	mouseInfo *MousePosition
-	game      *Game
+	active bool
+	ui     *ebitenui.UI
+	root   *widget.Container
+	res    *uiResources
+	game   *Game
 
 	resolutions []MenuResolution
 
@@ -41,7 +40,7 @@ func (r MenuResolution) String() string {
 	return fmt.Sprintf("(%d:%d) %dx%d", r.aspectRatio.w, r.aspectRatio.h, r.width, r.height)
 }
 
-func createMenu(g *Game) *DemoMenu {
+func (g *Game) createMenu() *DemoMenu {
 	res, err := NewUIResources()
 	if err != nil {
 		log.Fatal(err)
@@ -56,7 +55,6 @@ func createMenu(g *Game) *DemoMenu {
 
 	menu := &DemoMenu{
 		game:        g,
-		mouseInfo:   &g.mouseInfo,
 		ui:          ui,
 		res:         res,
 		active:      false,

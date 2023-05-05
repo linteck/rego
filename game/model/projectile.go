@@ -1,7 +1,6 @@
 package model
 
 import (
-	"fmt"
 	"image/color"
 	"lintech/rego/game/loader"
 	"log"
@@ -22,19 +21,7 @@ type Projectile struct {
 	ProjectileTemplate
 }
 
-func (r *Projectile) Run() {
-	r.running = true
-	var err error
-	for r.running {
-		msg := <-r.rx
-		err = r.process(msg)
-		if err != nil {
-			fmt.Println(err)
-		}
-	}
-}
-
-func (r *Projectile) process(m ReactorEventMessage) error {
+func (r *Projectile) ProcessMessage(m ReactorEventMessage) error {
 	// log.Print(fmt.Sprintf("(%v) recv %T", r.thing.GetData().Entity.RgId, e))
 	switch m.event.(type) {
 	case EventUpdateTick:
@@ -55,15 +42,17 @@ func (r *Projectile) eventHandleUnknown(sender RcTx, e IReactorEvent) error {
 }
 
 func NewProjectile(coreTx RcTx, pt *ProjectileTemplate, aim Entity) RcTx {
-	rc := NewReactor()
-	p := &Projectile{Reactor: rc,
+	p := &Projectile{
+		Reactor:            NewReactor(),
 		ProjectileTemplate: *pt,
 	}
+	// Don't use ID of Template
+	p.rgData.Entity.RgId = RgIdGenerator.GenId()
 	p.rgData.Entity.ParentId = aim.RgId
 	p.rgData.Entity.Position = aim.Position
 	p.rgData.Entity.Angle = aim.Angle
 	p.rgData.Entity.Pitch = aim.Pitch
-	go p.Run()
+	go p.Reactor.Run(p)
 	m := ReactorEventMessage{p.tx, EventRegisterRegoter{p.tx, p.rgData}}
 	coreTx <- m
 	return p.tx

@@ -1,7 +1,6 @@
 package model
 
 import (
-	"fmt"
 	"image/color"
 	"lintech/rego/game/loader"
 	"log"
@@ -14,19 +13,7 @@ type Crosshairs struct {
 	rgData RegoterData
 }
 
-func (r *Crosshairs) Run() {
-	r.running = true
-	var err error
-	for r.running {
-		msg := <-r.rx
-		err = r.process(msg)
-		if err != nil {
-			fmt.Println(err)
-		}
-	}
-}
-
-func (r *Crosshairs) process(m ReactorEventMessage) error {
+func (r *Crosshairs) ProcessMessage(m ReactorEventMessage) error {
 	// log.Print(fmt.Sprintf("(%v) recv %T", r.thing.GetData().Entity.RgId, e))
 	switch m.event.(type) {
 	case EventUpdateTick:
@@ -65,13 +52,14 @@ func NewCrosshairs(coreTx RcTx) RcTx {
 		HitIndex:    57,
 	}
 	t := &Crosshairs{
+		Reactor: NewReactor(),
 		rgData: RegoterData{
 			Entity:   entity,
 			DrawInfo: di,
 		},
 	}
 
-	go t.Run()
+	go t.Reactor.Run(t)
 	m := ReactorEventMessage{t.tx, EventRegisterRegoter{t.tx, t.rgData}}
 	coreTx <- m
 	return t.tx

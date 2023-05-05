@@ -1,7 +1,6 @@
 package model
 
 import (
-	"fmt"
 	"image/color"
 	"lintech/rego/game/loader"
 	"log"
@@ -19,19 +18,7 @@ type EffectTemplate struct {
 	LoopCount int
 }
 
-func (r *Effect) Run() {
-	r.running = true
-	var err error
-	for r.running {
-		msg := <-r.rx
-		err = r.process(msg)
-		if err != nil {
-			fmt.Println(err)
-		}
-	}
-}
-
-func (r *Effect) process(m ReactorEventMessage) error {
+func (r *Effect) ProcessMessage(m ReactorEventMessage) error {
 	// log.Print(fmt.Sprintf("(%v) recv %T", r.thing.GetData().Entity.RgId, e))
 	switch m.event.(type) {
 	case EventUpdateTick:
@@ -105,11 +92,13 @@ func (ef *Effect) eventHandleUpdateData(sender RcTx, e EventUpdateData) {
 }
 
 func NewEffect(coreTx RcTx, et *EffectTemplate) RcTx {
-	rc := NewReactor()
-	ef := &Effect{Reactor: rc,
+	ef := &Effect{
+		Reactor:        NewReactor(),
 		EffectTemplate: *et,
 	}
-	go ef.Run()
+	// Don't use ID of Template
+	ef.rgData.Entity.RgId = RgIdGenerator.GenId()
+	go ef.Reactor.Run(ef)
 	m := ReactorEventMessage{ef.tx, EventRegisterRegoter{ef.tx, ef.rgData}}
 	coreTx <- m
 	return ef.tx

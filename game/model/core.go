@@ -49,19 +49,7 @@ type Core struct {
 	mapHeight    int
 }
 
-func (r *Core) Run() {
-	r.running = true
-	var err error
-	for r.running {
-		msg := <-r.rx
-		err = r.process(msg)
-		if err != nil {
-			fmt.Println(err)
-		}
-	}
-}
-
-func (g *Core) process(m ReactorEventMessage) error {
+func (g *Core) ProcessMessage(m ReactorEventMessage) error {
 	switch m.event.(type) {
 	case EventDebugPrint:
 		g.eventHandleEventDebugPrint(m.sender, m.event.(EventDebugPrint))
@@ -321,7 +309,7 @@ func NewCore(cfg GameCfg) RcTx {
 
 	core.applyConfig()
 
-	go core.Run()
+	go core.Reactor.Run(core)
 	return core.tx
 }
 func (core *Core) applyConfig() {

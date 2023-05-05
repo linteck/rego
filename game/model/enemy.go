@@ -1,7 +1,6 @@
 package model
 
 import (
-	"fmt"
 	"lintech/rego/game/loader"
 	"log"
 	"math/rand"
@@ -19,19 +18,7 @@ type Enemy struct {
 	hasCollision bool
 }
 
-func (r *Enemy) Run() {
-	r.running = true
-	var err error
-	for r.running {
-		msg := <-r.rx
-		err = r.process(msg)
-		if err != nil {
-			fmt.Println(err)
-		}
-	}
-}
-
-func (r *Enemy) process(m ReactorEventMessage) error {
+func (r *Enemy) ProcessMessage(m ReactorEventMessage) error {
 	// log.Print(fmt.Sprintf("(%v) recv %T", r.thing.GetData().Entity.RgId, e))
 	switch m.event.(type) {
 	case EventUpdateTick:
@@ -68,6 +55,7 @@ func NewEnemy(coreTx RcTx,
 		Angle:           rand.Float64() * geom.Pi2,
 	}
 	t := &Enemy{
+		Reactor: NewReactor(),
 		rgData: RegoterData{
 			Entity:   entity,
 			DrawInfo: di,
@@ -75,7 +63,7 @@ func NewEnemy(coreTx RcTx,
 		health: fullHealth,
 	}
 
-	go t.Run()
+	go t.Reactor.Run(t)
 	m := ReactorEventMessage{t.tx, EventRegisterRegoter{t.tx, t.rgData}}
 	coreTx <- m
 	return t.tx

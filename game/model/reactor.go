@@ -1,7 +1,9 @@
 package model
 
 import (
+	"fmt"
 	"image/color"
+	"log"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -209,9 +211,9 @@ type EventUpdatedMove struct {
 	Move Movement
 }
 
-type EventInput struct {
-	input Movement
-}
+// type EventInput struct {
+// 	input Movement
+// }
 
 func NewReactor() Reactor {
 	// NOTE:  If there are about 10,000 Regoters,
@@ -224,6 +226,25 @@ func NewReactor() Reactor {
 	c := make(chan ReactorEventMessage, 10)
 	rc := Reactor{c, c, true}
 	return rc
+}
+
+type IProcessMessage interface {
+	ProcessMessage(m ReactorEventMessage) error
+}
+
+func (r *Reactor) Run(t IProcessMessage) {
+	if r.rx == nil || r.tx == nil {
+		log.Fatal("Reactor channel is not initialized!")
+	}
+	r.running = true
+	var err error
+	for r.running {
+		msg := <-r.rx
+		err = t.ProcessMessage(msg)
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
 }
 
 func NewReactorCore() Reactor {
