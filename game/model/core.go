@@ -165,7 +165,6 @@ func (g *Core) eventHandleRegisterRegoter(sender RcTx, e EventRegisterRegoter) {
 		log.Fatal("Invalid nil Img for ", d.Entity.RgType, d.Entity.RgId)
 	}
 	rg.sprite = createCoreSprite(rg)
-	rg.state.HasCollision = false
 	g.rgs[rg.rgType].Insert(d.Entity.RgId, rg)
 }
 
@@ -197,9 +196,11 @@ func (g *Core) eventHandleMovement(sender RcTx, e EventMovement) {
 }
 
 func (g *Core) eventHandleDamage(sender RcTx, e EventDamage) {
-	if p, ok := g.findRegoter(e.peer); ok {
-		m := ReactorEventMessage{g.tx, EventDamage{peer: 0, damage: e.damage}}
-		p.tx <- m
+	if e.peer != WALL_ID {
+		if p, ok := g.findRegoter(e.peer); ok {
+			m := ReactorEventMessage{g.tx, EventDamage{peer: 0, damage: e.damage}}
+			p.tx <- m
+		}
 	}
 }
 
@@ -228,28 +229,28 @@ func (g *Core) updatedMove(p *regoterInCore, sender RcTx, e EventMovement) bool 
 			checkAlternate = true
 		}
 
-		newPos, hasCollision, collisionEntities := g.getValidMove(pe, lineEnd.X, lineEnd.Y, lineEnd.Z, checkAlternate)
-		if hasCollision {
+		newPos, collisionEntity := g.getValidMove(pe, lineEnd.X, lineEnd.Y, lineEnd.Z, checkAlternate)
+		if collisionEntity != nil {
 			// Send EventCollistion to both Entities in collistion
-			collissionForSender := collisionEntities[0]
 			sender <- ReactorEventMessage{
-				g.tx, EventCollision{collistion: *collissionForSender}}
+				g.tx, EventCollision{collistion: *collisionEntity}}
 
-			peerId := collissionForSender.peer
+			peerId := collisionEntity.peer
 			if rg, ok := g.findRegoter(peerId); ok {
-				collisionForPeer := EntityCollision{peer: pe.RgId, distance: collissionForSender.distance, position: collissionForSender.position}
+				collisionForPeer := EntityCollision{peer: pe.RgId, distance: collisionEntity.distance,
+					position: collisionEntity.position}
 				rg.tx <- ReactorEventMessage{
 					g.tx, EventCollision{collistion: collisionForPeer}}
 			}
+		} else {
+			if lineEnd.Z < -1 {
+				// Hit ground
+				collision := EntityCollision{peer: WALL_ID, distance: 0,
+					position: *lineEnd}
+				sender <- ReactorEventMessage{
+					g.tx, EventCollision{collistion: collision}}
+			}
 		}
-
-		// Debug
-		// Hit ground
-		if pe.Position.Z < -1 {
-			hasCollision = true
-		}
-
-		p.state.HasCollision = hasCollision
 
 		if newPos.X != pe.Position.X || newPos.Y != pe.Position.Y || lineEnd.Z != pe.Position.Z {
 			pe.Position.X = newPos.X

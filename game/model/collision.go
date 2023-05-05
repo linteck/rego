@@ -12,11 +12,11 @@ import (
 // NOTE: Bug??
 // When collision with Wall, the []*EntityCollision is empty!
 func (g *Core) getValidMove(entity *Entity,
-	moveX, moveY, moveZ float64, checkAlternate bool) (*geom.Vector2, bool, []*EntityCollision) {
+	moveX, moveY, moveZ float64, checkAlternate bool) (*geom.Vector2, *EntityCollision) {
 
 	posX, posY, posZ := entity.Position.X, entity.Position.Y, entity.Position.Z
 	if posX == moveX && posY == moveY && posZ == moveZ {
-		return &geom.Vector2{X: posX, Y: posY}, false, []*EntityCollision{}
+		return &geom.Vector2{X: posX, Y: posY}, nil
 	}
 
 	newX, newY, newZ := moveX, moveY, moveZ
@@ -33,7 +33,7 @@ func (g *Core) getValidMove(entity *Entity,
 				// Collistion with wall, RcTx is nil
 				collisionEntities, &EntityCollision{
 					position: Position{X: point.X, Y: point.Y, Z: newZ},
-					peer:     0,
+					peer:     WALL_ID,
 					distance: geom.Distance2(posX, posY, point.X, point.Y),
 				},
 			)
@@ -118,9 +118,9 @@ func (g *Core) getValidMove(entity *Entity,
 			return collisionEntities[i].distance < collisionEntities[j].distance
 		})
 		// If there is collistion, don't move!
-		return &geom.Vector2{X: posX, Y: posY}, isCollision, collisionEntities[:1]
+		return &geom.Vector2{X: posX, Y: posY}, collisionEntities[0]
 	} else {
-		return &geom.Vector2{X: newX, Y: newY}, isCollision, collisionEntities
+		return &geom.Vector2{X: newX, Y: newY}, nil
 	}
 
 }

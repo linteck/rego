@@ -4,6 +4,8 @@ import (
 	"sync"
 )
 
+const WALL_ID = 0
+
 type IdGenerator struct {
 	id ID
 	mu sync.Mutex

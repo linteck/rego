@@ -13,10 +13,10 @@ const fullHealth = 100
 
 type Enemy struct {
 	Reactor
-	rgData       RegoterData
-	health       int
-	hasCollision bool
-	harm         int
+	rgData           RegoterData
+	health           int
+	collistionRotate float64
+	harm             int
 }
 
 func (r *Enemy) ProcessMessage(m ReactorEventMessage) error {
@@ -51,8 +51,11 @@ func (r *Enemy) eventHandleDamage(sender RcTx, e EventDamage) {
 }
 
 func (c *Enemy) eventHandleCollision(sender RcTx, e EventCollision) {
-	m := ReactorEventMessage{c.tx, EventDamage{peer: e.collistion.peer, damage: c.harm}}
-	sender <- m
+	if e.collistion.peer != WALL_ID {
+		m := ReactorEventMessage{c.tx, EventDamage{peer: e.collistion.peer, damage: c.harm}}
+		sender <- m
+	}
+	c.collistionRotate = rand.Float64() * geom.Pi2
 }
 
 func NewEnemy(coreTx RcTx,
@@ -103,9 +106,9 @@ func (c *Enemy) eventHandleUpdateTick(sender RcTx, e EventUpdateTick) {
 	movement := Movement{
 		Velocity: c.rgData.Entity.Velocity,
 	}
-	if c.hasCollision {
-		movement.VissionRotate = rand.Float64() * geom.Pi2
-		// log.Printf("%+v", movement)
+	if c.collistionRotate != 0 {
+		movement.VissionRotate += c.collistionRotate
+		c.collistionRotate = 0
 	}
 	if isMoving(movement) {
 		e := EventMovement{RgId: c.rgData.Entity.RgId, Move: movement}
@@ -117,7 +120,6 @@ func (c *Enemy) eventHandleUpdateTick(sender RcTx, e EventUpdateTick) {
 func (c *Enemy) eventHandleUpdateData(sender RcTx, e EventUpdateData) {
 
 	c.rgData.Entity = e.RgEntity
-	c.hasCollision = e.RgState.HasCollision
 
 	// log.Printf("Update Data %+v", c.rgData.Entity)
 	//log.Printf("enemy: %+v", rgEntity)

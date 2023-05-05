@@ -50,8 +50,10 @@ func (r *Projectile) eventHandleDamage(sender RcTx, e EventDamage) {
 
 func (c *Projectile) eventHandleCollision(sender RcTx, e EventCollision) {
 
-	d := ReactorEventMessage{c.tx, EventDamage{peer: e.collistion.peer, damage: c.harm}}
-	sender <- d
+	if e.collistion.peer != WALL_ID {
+		d := ReactorEventMessage{c.tx, EventDamage{peer: e.collistion.peer, damage: c.harm}}
+		sender <- d
+	}
 
 	m := ReactorEventMessage{c.tx, EventUnregisterRegoter{RgId: c.rgData.Entity.RgId}}
 	sender <- m
