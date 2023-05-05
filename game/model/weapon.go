@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image/color"
 	"lintech/rego/game/loader"
+	"log"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/harbdog/raycaster-go"
@@ -46,7 +47,7 @@ func (r *Weapon) Run() {
 }
 
 func (r *Weapon) process(m ReactorEventMessage) error {
-	// logger.Print(fmt.Sprintf("(%v) recv %T", r.thing.GetData().Entity.RgId, e))
+	// log.Print(fmt.Sprintf("(%v) recv %T", r.thing.GetData().Entity.RgId, e))
 	switch m.event.(type) {
 	case EventUpdateTick:
 		r.eventHandleUpdateTick(m.sender, m.event.(EventUpdateTick))
@@ -90,7 +91,7 @@ func (r *Weapon) eventHandleFireWeapon(sender RcTx, e EventInput) error {
 }
 
 func (r *Weapon) eventHandleUnknown(sender RcTx, e IReactorEvent) error {
-	logger.Fatal("Unknown event:", e)
+	log.Fatal("Unknown event:", e)
 	return nil
 }
 

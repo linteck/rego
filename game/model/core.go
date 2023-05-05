@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image/color"
 	"lintech/rego/game/loader"
+	"log"
 	"math"
 
 	"github.com/chen3feng/stl4go"
@@ -117,7 +118,7 @@ func (g *Core) eventHandleGameEventCfgChanged(sender RcTx, e EventCfgChanged) {
 				v.tx <- e
 			})
 		}
-		// logger.Print(fmt.Sprintf("current rg num %v", g.rgs.Len()))
+		// log.Print(fmt.Sprintf("current rg num %v", g.rgs.Len()))
 		g.applyConfig()
 	}
 }
@@ -129,7 +130,7 @@ func (g *Core) eventHandleEventDebugPrint(sender RcTx, e EventDebugPrint) {
 func createCoreSprite(rg *regoterInCore) *Sprite {
 	var sprite *Sprite
 	if rg.di.Img == nil {
-		logger.Printf("Warning!!! Register Regoter without Img. Will not create Sprite for it.")
+		log.Printf("Warning!!! Register Regoter without Img. Will not create Sprite for it.")
 		return nil
 	}
 	if rg.di.AnimationRate != 0 {
@@ -154,10 +155,10 @@ func (g *Core) eventHandleRegisterRegoter(sender RcTx, e EventRegisterRegoter) {
 	d := e.RgData
 	rg := &regoterInCore{tx: sender, rgType: d.Entity.RgType, entity: d.Entity, di: d.DrawInfo}
 	if rg.di.AnimationRate != 0 && rg.di.SpriteIndex != 0 {
-		logger.Fatal("This Regoter can not be both Animation and Sheet")
+		log.Fatal("This Regoter can not be both Animation and Sheet")
 	}
 	if rg.di.Img == nil && d.Entity.RgType != RegoterEnumPlayer {
-		logger.Fatal("Invalid nil Img for ", d.Entity.RgType, d.Entity.RgId)
+		log.Fatal("Invalid nil Img for ", d.Entity.RgType, d.Entity.RgId)
 	}
 	rg.sprite = createCoreSprite(rg)
 	rg.state.Unregistered = false
@@ -270,7 +271,7 @@ func (g *Core) eventHandleRegoterUnregister(sender RcTx, e EventUnregisterRegote
 }
 
 func (g *Core) eventHandleUnknown(sender RcTx, e IReactorEvent) error {
-	logger.Fatal(fmt.Sprintf("Unknown event: %T", e))
+	log.Fatal(fmt.Sprintf("Unknown event: %T", e))
 	return nil
 }
 
@@ -337,7 +338,7 @@ func (core *Core) applyConfig() {
 
 	core.camera = raycaster.NewCamera(cfg.Width, cfg.Height, loader.TexWidth,
 		core.mapObj, core.tex)
-	//logger.Printf("%+v", cfg)
+	//log.Printf("%+v", cfg)
 	core.setResolution(cfg.ScreenWidth, cfg.ScreenHeight)
 	core.setRenderScale(cfg.RenderScale)
 	core.setFullscreen(cfg.Fullscreen)

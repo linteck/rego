@@ -44,7 +44,7 @@ func (r *Player) Run() {
 }
 
 func (r *Player) process(m ReactorEventMessage) error {
-	// logger.Print(fmt.Sprintf("(%v) recv %T", r.thing.GetData().Entity.RgId, e))
+	// log.Print(fmt.Sprintf("(%v) recv %T", r.thing.GetData().Entity.RgId, e))
 	switch m.event.(type) {
 	case EventUpdateTick:
 		r.eventHandleUpdateTick(m.sender, m.event.(EventUpdateTick))
@@ -64,7 +64,7 @@ func (r *Player) eventHandleCfgChanged(sender RcTx, e EventCfgChanged) {
 }
 
 func (r *Player) eventHandleUnknown(sender RcTx, e IReactorEvent) error {
-	logger.Fatal("Unknown event:", e)
+	log.Fatal("Unknown event:", e)
 	return nil
 }
 
@@ -96,7 +96,7 @@ func NewPlayer(coreTx RcTx) RcTx {
 	}
 	// t.rgData.DrawInfo = t.Weapon.di
 	// if t.rgData.DrawInfo.Img == nil {
-	// 	logger.Fatal("Invalid nil Img for NewPlayer()")
+	// 	log.Fatal("Invalid nil Img for NewPlayer()")
 	// }
 
 	go t.Run()

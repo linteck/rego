@@ -46,7 +46,7 @@ func (r *Game) processMessage() {
 }
 
 func (r *Game) process(m ReactorEventMessage) error {
-	// logger.Print(fmt.Sprintf("(%v) recv %T", r.thing.GetData().Entity.RgId, e))
+	// log.Print(fmt.Sprintf("(%v) recv %T", r.thing.GetData().Entity.RgId, e))
 	switch m.event.(type) {
 	default:
 		r.eventHandleUnknown(m.sender, m.event)
@@ -55,7 +55,7 @@ func (r *Game) process(m ReactorEventMessage) error {
 }
 
 func (g *Game) eventHandleUnknown(sender RcTx, e IReactorEvent) error {
-	logger.Fatal(fmt.Sprintf("Unknown event: %T", e))
+	log.Fatal(fmt.Sprintf("Unknown event: %T", e))
 	return nil
 }
 
@@ -77,11 +77,11 @@ func (g *Game) Update() error {
 func (g *Game) Run() {
 	g.paused = false
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	logger.Print("Start")
+	log.Print("Start")
 	// Debug
 	//ebiten.SetTPS(1)
 	if err := ebiten.RunGame(g); err != nil {
-		logger.Fatal(err)
+		log.Fatal(err)
 	}
 }
 
@@ -95,7 +95,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	// draw menu (if active)
 	g.menu.draw(screen)
 
-	//logger.Print("Draw reply", r)
+	//log.Print("Draw reply", r)
 }
 
 // Layout takes the outside size (e.g., the window size) and returns the (logical) screen size.

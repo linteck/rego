@@ -4,7 +4,6 @@ go 1.20
 
 require (
 	github.com/chen3feng/stl4go v0.1.1
-	github.com/jinzhu/copier v0.3.5
 )
 
 require (
