@@ -1,15 +1,10 @@
-package game
+package model
 
 import (
 	"fmt"
 	"image/color"
 	"lintech/rego/game/loader"
-	"lintech/rego/game/model"
-	"lintech/rego/iregoter"
-	"log"
 	"math"
-	"os"
-	"time"
 
 	"github.com/chen3feng/stl4go"
 	"github.com/hajimehoshi/ebiten/v2"
@@ -18,45 +13,33 @@ import (
 	"github.com/harbdog/raycaster-go/geom3d"
 )
 
-var logger = log.New(os.Stdout, "Core ", 0)
-
 type regoterInCore struct {
-	tx     iregoter.CoreTxMsgbox
-	rgType iregoter.RegoterEnum
-	sprite *iregoter.Sprite
-	state  iregoter.RegoterState
-	entity iregoter.Entity
-	di     iregoter.DrawInfo
+	tx     RcTx
+	rgType RegoterEnum
+	sprite *Sprite
+	state  RegoterState
+	entity Entity
+	di     DrawInfo
 }
 
-type regoterSpace struct {
-	entiry iregoter.CoreTxMsgbox
-}
-
-var imgLayerPriorities = [...]iregoter.ImgLayer{
-	iregoter.ImgLayerPlayer,
-	iregoter.ImgLayerSprite,
-}
-
-var allRegoterEnum = [...]iregoter.RegoterEnum{
-	iregoter.RegoterEnumSprite,
-	iregoter.RegoterEnumProjectile,
-	iregoter.RegoterEnumEffect,
-	iregoter.RegoterEnumCrosshair,
-	iregoter.RegoterEnumWeapon,
-	iregoter.RegoterEnumPlayer,
+var allRegoterEnum = [...]RegoterEnum{
+	RegoterEnumSprite,
+	RegoterEnumProjectile,
+	RegoterEnumEffect,
+	RegoterEnumCrosshair,
+	RegoterEnumWeapon,
+	RegoterEnumPlayer,
 }
 
 type Core struct {
-	rxBox    iregoter.CoreRxMsgbox
-	txToGame iregoter.CoreTxMsgbox
-	cfg      iregoter.GameCfg
-	rgs      [len(allRegoterEnum)]*stl4go.SkipList[iregoter.ID, *regoterInCore]
-	//imgs     [len(imgLayerPriorities)]*stl4go.DList[iregoter.RegoterUpdatedImg]
+	Reactor
+	cfg GameCfg
+	rgs [len(allRegoterEnum)]*stl4go.SkipList[ID, *regoterInCore]
 
 	// Camera
 	camera        *raycaster.Camera
 	scene         *ebiten.Image
+	tex           *loader.TextureHandler
 	debugMessages *stl4go.DList[string]
 	//--array of levels, levels refer to "floors" of the world--//
 	mapObj       *loader.Map
@@ -65,16 +48,58 @@ type Core struct {
 	mapHeight    int
 }
 
-func (g *Core) eventHandleGameEventTick(e iregoter.GameEventTick) {
+func (r *Core) Run() {
+	r.running = true
+	var err error
+	for r.running {
+		msg := <-r.rx
+		err = r.process(msg)
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
+}
+
+func (g *Core) process(m ReactorEventMessage) error {
+	switch m.event.(type) {
+	case EventDebugPrint:
+		g.eventHandleEventDebugPrint(m.sender, m.event.(EventDebugPrint))
+
+	case EventGameTick:
+		g.eventHandleGameEventTick(m.sender, m.event.(EventGameTick))
+
+	case EventCfgChanged:
+		g.eventHandleGameEventCfgChanged(m.sender, m.event.(EventCfgChanged))
+
+	case EventDraw:
+		g.eventHandleGameEventDraw(m.sender, m.event.(EventDraw))
+
+	case EventRegisterRegoter:
+		g.eventHandleRegisterRegoter(m.sender, m.event.(EventRegisterRegoter))
+
+	case EventUnregisterRegoter:
+		g.eventHandleRegoterUnregister(m.sender, m.event.(EventUnregisterRegoter))
+
+	case EventUpdatedMove:
+		g.eventHandleUpdatedMove(m.sender, m.event.(EventUpdatedMove))
+
+	default:
+		g.eventHandleUnknown(m.sender, m.event)
+	}
+
+	return nil
+}
+
+func (g *Core) eventHandleGameEventTick(sender RcTx, e EventGameTick) {
 	for _, l := range g.rgs {
-		l.ForEach(func(k iregoter.ID, v *regoterInCore) {
-			e := iregoter.CoreEventUpdateTick{}
+		l.ForEach(func(k ID, v *regoterInCore) {
+			e := ReactorEventMessage{g.tx, EventUpdateTick{RgState: v.state}}
 			v.tx <- e
 		})
 	}
 
 	for _, l := range g.rgs {
-		l.ForEach(func(k iregoter.ID, v *regoterInCore) {
+		l.ForEach(func(k ID, v *regoterInCore) {
 			if v.sprite != nil {
 				v.sprite.Update(g.camera.GetPosition())
 			}
@@ -83,48 +108,39 @@ func (g *Core) eventHandleGameEventTick(e iregoter.GameEventTick) {
 
 }
 
-// func (g *Core) eventHandleGameEventTick(e iregoter.GameEventTick) {
-// 	player := g.rgs[iregoter.RegoterEnumPlayer].Iterate().Value()
-// 	for _, l := range g.rgs {
-// 		l.ForEach(func(k iregoter.ID, v regoterInCore) {
-// 			e := iregoter.CoreEventUpdateData{RgEntity: v.entity, PlayEntiry: player.entity,
-// 				RgState: v.state}
-// 			v.tx <- e
-// 		})
-// 	}
-// 	// logger.Print(fmt.Sprintf("current rg num %v", g.rgs.Len()))
-// }
-
-func (g *Core) eventHandleGameEventCfgChanged(e iregoter.GameEventCfgChanged) {
-	g.cfg = e.Cfg
-	for _, l := range g.rgs {
-		l.ForEach(func(k iregoter.ID, v *regoterInCore) {
-			v.tx <- e
-		})
+func (g *Core) eventHandleGameEventCfgChanged(sender RcTx, e EventCfgChanged) {
+	if g.cfg != e.Cfg {
+		g.cfg = e.Cfg
+		for _, l := range g.rgs {
+			l.ForEach(func(k ID, v *regoterInCore) {
+				e := ReactorEventMessage{g.tx, EventCfgChanged{}}
+				v.tx <- e
+			})
+		}
+		// logger.Print(fmt.Sprintf("current rg num %v", g.rgs.Len()))
+		g.applyConfig()
 	}
-	// logger.Print(fmt.Sprintf("current rg num %v", g.rgs.Len()))
-	g.applyConfig()
 }
 
-func (g *Core) eventHandleEventDebugPrint(e iregoter.EventDebugPrint) {
+func (g *Core) eventHandleEventDebugPrint(sender RcTx, e EventDebugPrint) {
 	g.debugMessages.PushBack(e.DebugString)
 }
 
-func createCoreSprite(rg *regoterInCore) *iregoter.Sprite {
-	var sprite *iregoter.Sprite
+func createCoreSprite(rg *regoterInCore) *Sprite {
+	var sprite *Sprite
 	if rg.di.Img == nil {
 		logger.Printf("Warning!!! Register Regoter without Img. Will not create Sprite for it.")
 		return nil
 	}
 	if rg.di.AnimationRate != 0 {
-		sprite = iregoter.NewAnimatedSprite(&rg.entity, rg.di.Img,
+		sprite = NewAnimatedSprite(&rg.entity, rg.di.Img,
 			rg.di.Columns, rg.di.Rows, rg.di.AnimationRate)
 		sprite.SetAnimationReversed(rg.di.AnimationReversed)
 		if rg.di.TexFacingMap != nil {
 			sprite.SetTextureFacingMap(*rg.di.TexFacingMap)
 		}
 	} else {
-		sprite = iregoter.NewSpriteFromSheet(&rg.entity, rg.di.Img,
+		sprite = NewSpriteFromSheet(&rg.entity, rg.di.Img,
 			rg.di.Columns, rg.di.Rows, rg.di.SpriteIndex)
 		sprite.SetAnimationFrame(rg.di.HitIndex)
 	}
@@ -134,13 +150,13 @@ func createCoreSprite(rg *regoterInCore) *iregoter.Sprite {
 
 }
 
-func (g *Core) eventHandleRegisterRegoter(e iregoter.RegoterEventRegisterRegoter) {
+func (g *Core) eventHandleRegisterRegoter(sender RcTx, e EventRegisterRegoter) {
 	d := e.RgData
-	rg := &regoterInCore{tx: e.Msgbox, rgType: d.Entity.RgType, entity: d.Entity, di: d.DrawInfo}
+	rg := &regoterInCore{tx: sender, rgType: d.Entity.RgType, entity: d.Entity, di: d.DrawInfo}
 	if rg.di.AnimationRate != 0 && rg.di.SpriteIndex != 0 {
 		logger.Fatal("This Regoter can not be both Animation and Sheet")
 	}
-	if rg.di.Img == nil && d.Entity.RgType != iregoter.RegoterEnumPlayer {
+	if rg.di.Img == nil && d.Entity.RgType != RegoterEnumPlayer {
 		logger.Fatal("Invalid nil Img for ", d.Entity.RgType, d.Entity.RgId)
 	}
 	rg.sprite = createCoreSprite(rg)
@@ -149,12 +165,12 @@ func (g *Core) eventHandleRegisterRegoter(e iregoter.RegoterEventRegisterRegoter
 	g.rgs[rg.rgType].Insert(d.Entity.RgId, rg)
 }
 
-// func (g *Core) eventHandleUpdatedImg(e iregoter.RegoterEventUpdatedImg) {
+// func (g *Core) eventHandleUpdatedImg(e RegoterEventUpdatedImg) {
 // 	l := g.imgs[e.Info.ImgLayer]
 // 	l.PushBack(e.Info)
 // }
 
-func (g *Core) findRegoter(id iregoter.ID) (*regoterInCore, bool) {
+func (g *Core) findRegoter(id ID) (*regoterInCore, bool) {
 	for _, l := range g.rgs {
 		r := l.Find(id)
 		if r != nil {
@@ -164,21 +180,22 @@ func (g *Core) findRegoter(id iregoter.ID) (*regoterInCore, bool) {
 	return nil, false
 }
 
-func (g *Core) eventHandleUpdatedMove(e iregoter.RegoterEventUpdatedMove) {
+func (g *Core) eventHandleUpdatedMove(sender RcTx, e EventUpdatedMove) {
 	if p, ok := g.findRegoter(e.RgId); ok {
-		moved := g.updatedMove(p, e)
-		if moved && (p.rgType == iregoter.RegoterEnumPlayer) {
+		moved := g.updatedMove(p, sender, e)
+		if moved && (p.rgType == RegoterEnumPlayer) {
 			g.updatePlayerCamera(&p.entity, moved, false)
 		}
 		if p.di.AnimationRate > 0 {
 			p.state.AnimationLoopCnt = p.sprite.LoopCounter()
 		}
-		e := iregoter.CoreEventUpdateData{RgEntity: p.entity, RgState: p.state}
-		p.tx <- e
+		e := EventUpdateData{RgEntity: p.entity, RgState: p.state}
+		m := ReactorEventMessage{g.tx, e}
+		p.tx <- m
 	}
 }
 
-func (g *Core) updatedMove(p *regoterInCore, e iregoter.RegoterEventUpdatedMove) bool {
+func (g *Core) updatedMove(p *regoterInCore, sender RcTx, e EventUpdatedMove) bool {
 	pe := &p.entity
 	rgType := pe.RgType
 	velocity := math.Max(pe.Velocity+e.Move.Acceleration, 0)
@@ -189,17 +206,17 @@ func (g *Core) updatedMove(p *regoterInCore, e iregoter.RegoterEventUpdatedMove)
 	mPitch := simplifyAngle(pe.Pitch + e.Move.PitchRotate)
 
 	moved := false
-	if math.Abs(velocity) > model.MinimumVelocity {
+	if math.Abs(velocity) > MinimumVelocity {
 		var checkAlternate bool
-		var lineEnd *iregoter.Position
-		if rgType == iregoter.RegoterEnumProjectile {
+		var lineEnd *Position
+		if rgType == RegoterEnumProjectile {
 			trajectory := geom3d.Line3dFromAngle(pe.Position.X, pe.Position.Y, pe.Position.Z,
 				mAngle, mPitch, velocity)
-			lineEnd = &iregoter.Position{X: trajectory.X2, Y: trajectory.Y2, Z: trajectory.Z2}
+			lineEnd = &Position{X: trajectory.X2, Y: trajectory.Y2, Z: trajectory.Z2}
 			checkAlternate = false
 		} else {
 			moveLine := geom.LineFromAngle(pe.Position.X, pe.Position.Y, mAngle, velocity)
-			lineEnd = &iregoter.Position{X: moveLine.X2, Y: moveLine.Y2, Z: pe.Position.Z}
+			lineEnd = &Position{X: moveLine.X2, Y: moveLine.Y2, Z: pe.Position.Z}
 			checkAlternate = true
 		}
 		newPos, hasCollision, _ := g.getValidMove(pe, lineEnd.X, lineEnd.Y, lineEnd.Z, checkAlternate)
@@ -222,11 +239,11 @@ func (g *Core) updatedMove(p *regoterInCore, e iregoter.RegoterEventUpdatedMove)
 	if vAngle != float64(pe.Angle) || mPitch != float64(pe.Pitch) || velocity != pe.Velocity {
 		pe.Angle = vAngle
 		pe.Pitch = geom.Clamp(mPitch, -math.Pi/8, math.Pi/4)
-		pe.Velocity = limitVelocity(velocity, model.MaximumVelocity)
+		pe.Velocity = limitVelocity(velocity, MaximumVelocity)
 		moved = true
 	}
 
-	if pe.Velocity > model.MinimumVelocity {
+	if pe.Velocity > MinimumVelocity {
 		pe.LastMoveRotate = e.Move.MoveRotate
 	} else {
 		pe.LastMoveRotate = 0
@@ -245,23 +262,23 @@ func limitVelocity(velocity float64, max float64) float64 {
 	return velocity
 }
 
-func (g *Core) eventHandleRegoterUnregister(e iregoter.RegoterEventRegoterUnregister) {
+func (g *Core) eventHandleRegoterUnregister(sender RcTx, e EventUnregisterRegoter) {
 	// Mark Deleted. Only delete it after drawing
 	if rg, ok := g.findRegoter(e.RgId); ok {
 		rg.state.Unregistered = true
 	}
 }
 
-func (r *Core) eventHandleUnknown(e iregoter.IRegoterEvent) error {
+func (g *Core) eventHandleUnknown(sender RcTx, e IReactorEvent) error {
 	logger.Fatal(fmt.Sprintf("Unknown event: %T", e))
 	return nil
 }
 
 func (g *Core) removeAllUnregisteredRogeter() {
 	for _, l := range g.rgs {
-		ids := make([]iregoter.ID, l.Len())
+		ids := make([]ID, l.Len())
 		index := 0
-		l.ForEach(func(id iregoter.ID, val *regoterInCore) {
+		l.ForEach(func(id ID, val *regoterInCore) {
 			if val.state.Unregistered {
 				ids[index] = id
 				index++
@@ -273,103 +290,53 @@ func (g *Core) removeAllUnregisteredRogeter() {
 	}
 }
 
-func (g *Core) process(e iregoter.IRegoterEvent) error {
-	// logger.Print(fmt.Sprintf("core event recv %T", e))
-	switch e.(type) {
-	case iregoter.EventDebugPrint:
-		g.eventHandleEventDebugPrint(e.(iregoter.EventDebugPrint))
-	case iregoter.GameEventTick:
-		g.eventHandleGameEventTick(e.(iregoter.GameEventTick))
-
-	case iregoter.GameEventCfgChanged:
-		g.eventHandleGameEventCfgChanged(e.(iregoter.GameEventCfgChanged))
-	case iregoter.GameEventDraw:
-		g.eventHandleGameEventDraw(e.(iregoter.GameEventDraw))
-
-	case iregoter.RegoterEventRegisterRegoter:
-		g.eventHandleRegisterRegoter(e.(iregoter.RegoterEventRegisterRegoter))
-	case iregoter.RegoterEventRegoterUnregister:
-		g.eventHandleRegoterUnregister(e.(iregoter.RegoterEventRegoterUnregister))
-	// case iregoter.RegoterEventUpdatedImg:
-	// 	g.eventHandleUpdatedImg(e.(iregoter.RegoterEventUpdatedImg))
-
-	case iregoter.RegoterEventUpdatedMove:
-		g.eventHandleUpdatedMove(e.(iregoter.RegoterEventUpdatedMove))
-	default:
-		g.eventHandleUnknown(e)
-	}
-	return nil
-}
-
-func (g *Core) Run() {
-	for {
-		select {
-		case e := <-g.rxBox:
-			err := g.process(e)
-			if err != nil {
-				logger.Fatal(err)
-			}
-		case <-time.After(time.Millisecond * 1000):
-			logger.Print("Core has not received any message in 1 second")
-			// err := g.update()
-			// if err != nil {
-			// 	fmt.Println(err)
-			// }
-		}
-	}
-}
-
-func NewCore(cfg *iregoter.GameCfg) (iregoter.RgTxMsgbox, iregoter.RgRxMsgbox) {
-	c := make(chan iregoter.IRegoterEvent)
-	g := make(chan iregoter.ICoreEvent)
-
-	var rgs [len(allRegoterEnum)]*stl4go.SkipList[iregoter.ID, *regoterInCore]
+func NewCore(cfg GameCfg) RcTx {
+	rc := NewReactorCore()
+	var rgs [len(allRegoterEnum)]*stl4go.SkipList[ID, *regoterInCore]
 	for i := 0; i < len(rgs); i++ {
-		rgs[i] = stl4go.NewSkipList[iregoter.ID, *regoterInCore]()
+		rgs[i] = stl4go.NewSkipList[ID, *regoterInCore]()
 	}
 
-	// var imgs [len(imgLayerPriorities)]*stl4go.DList[iregoter.RegoterUpdatedImg]
+	// var imgs [len(imgLayerPriorities)]*stl4go.DList[RegoterUpdatedImg]
 	// for i := 0; i < len(imgs); i++ {
-	// 	imgs[i] = stl4go.NewDList[iregoter.RegoterUpdatedImg]()
+	// 	imgs[i] = stl4go.NewDList[RegoterUpdatedImg]()
 	// }
 
 	// load map
 	mapObj := loader.NewMap()
 	collisionMap := mapObj.GetCollisionLines(loader.ClipDistance)
+	tex := loader.LoadContent(mapObj)
 
 	worldMap := mapObj.Level(0)
 	mapWidth := len(worldMap)
 	mapHeight := len(worldMap[0])
 
-	// load content once when first run
-	tex := loader.LoadContent(mapObj)
-	if cfg.Debug {
-		tex.FloorTex = loader.GetRGBAFromFile("grass_debug.png")
-	} else {
-		tex.FloorTex = loader.GetRGBAFromFile("grass.png")
-	}
-
-	// load texture handler
-	//tex := NewTextureHandler(mapObj, 32)
-	tex.RenderFloorTex = cfg.RenderFloorTex
-
-	camera := raycaster.NewCamera(cfg.Width, cfg.Height, loader.TexWidth, mapObj, tex)
 	debugMessages := stl4go.NewDList[string]()
-	core := &Core{rxBox: c, txToGame: g, rgs: rgs,
+	core := &Core{Reactor: rc, rgs: rgs,
 		mapObj: mapObj, collisionMap: collisionMap,
-		mapWidth: mapWidth, mapHeight: mapHeight, camera: camera, cfg: *cfg,
-		debugMessages: debugMessages,
+		mapWidth: mapWidth, mapHeight: mapHeight,
+		debugMessages: debugMessages, tex: tex, cfg: cfg,
 	}
 
 	core.applyConfig()
 
 	go core.Run()
-	return c, g
+	return core.tx
 }
 func (core *Core) applyConfig() {
+	cfg := core.cfg
 	//--init camera and renderer--//
 	// use scale to keep the desired window width and height
-	cfg := core.cfg
+	// load content once when first run
+	// load texture handler
+	if cfg.Debug {
+		core.tex.FloorTex = loader.GetRGBAFromFile("grass_debug.png")
+	} else {
+		core.tex.FloorTex = loader.GetRGBAFromFile("grass.png")
+	}
+
+	core.camera = raycaster.NewCamera(cfg.Width, cfg.Height, loader.TexWidth,
+		core.mapObj, core.tex)
 	//logger.Printf("%+v", cfg)
 	core.setResolution(cfg.ScreenWidth, cfg.ScreenHeight)
 	core.setRenderScale(cfg.RenderScale)
@@ -396,7 +363,7 @@ func (core *Core) applyConfig() {
 }
 
 // Update camera to match player position and orientation
-func (g *Core) updatePlayerCamera(pe *iregoter.Entity, moved bool, forceUpdate bool) {
+func (g *Core) updatePlayerCamera(pe *Entity, moved bool, forceUpdate bool) {
 	if !moved && !forceUpdate {
 		// only update camera position if player moved or forceUpdate set
 		return

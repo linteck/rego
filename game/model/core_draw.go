@@ -1,33 +1,34 @@
-package game
+package model
 
 import (
 	"fmt"
-	"lintech/rego/iregoter"
+	"image/color"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/harbdog/raycaster-go"
 )
 
-func (g *Core) eventHandleGameEventDraw(e iregoter.GameEventDraw) {
+func (g *Core) eventHandleGameEventDraw(sender RcTx, e EventDraw) {
 
 	g.drawScreen(e.Screen)
 
 	// Debug
 	// g.removeAllUnregisteredRogeter()
-	r := iregoter.CoreEventDrawDone{}
-	g.txToGame <- r
+	m := ReactorEventMessage{g.tx, EventDrawDone{}}
+	sender <- m
 
 }
 
 func (g *Core) drawScreen(screen *ebiten.Image) {
 	// Put projectiles together with sprites for raycasting both as sprites
-	sl := g.rgs[iregoter.RegoterEnumSprite]
+	sl := g.rgs[RegoterEnumSprite]
 	numSprites := sl.Len()
 	raycastSprites := make([]raycaster.Sprite, numSprites)
 
 	index := 0
-	sl.ForEach(func(i iregoter.ID, val *regoterInCore) {
+	sl.ForEach(func(i ID, val *regoterInCore) {
 		if val.sprite != nil {
 			raycastSprites[index] = val.sprite
 			index += 1
@@ -46,7 +47,7 @@ func (g *Core) drawScreen(screen *ebiten.Image) {
 
 	if g.cfg.ShowSpriteBoxes {
 		// draw sprite screen indicators to show we know where it was raycasted (must occur after camera.Update)
-		sl.ForEach(func(i iregoter.ID, val *regoterInCore) {
+		sl.ForEach(func(i ID, val *regoterInCore) {
 			if val.sprite != nil {
 				drawSpriteBox(g.scene, val.sprite)
 			}
@@ -85,8 +86,8 @@ func (g *Core) drawScreen(screen *ebiten.Image) {
 }
 
 func (g *Core) drawWeapon(scene *ebiten.Image) {
-	sl := g.rgs[iregoter.RegoterEnumWeapon]
-	sl.ForEach(func(i iregoter.ID, val *regoterInCore) {
+	sl := g.rgs[RegoterEnumWeapon]
+	sl.ForEach(func(i ID, val *regoterInCore) {
 		if val.sprite != nil {
 			op := &ebiten.DrawImageOptions{}
 			op.Filter = ebiten.FilterNearest
@@ -117,8 +118,8 @@ func (g *Core) drawDebugInfo(screen *ebiten.Image) {
 }
 
 func (g *Core) drawCrosshairs(screen *ebiten.Image) {
-	cl := g.rgs[iregoter.RegoterEnumCrosshair]
-	cl.ForEach(func(i iregoter.ID, r *regoterInCore) {
+	cl := g.rgs[RegoterEnumCrosshair]
+	cl.ForEach(func(i ID, r *regoterInCore) {
 		op := &ebiten.DrawImageOptions{}
 		op.Filter = ebiten.FilterNearest
 
@@ -148,4 +149,30 @@ func (g *Core) drawMiniMap(screen *ebiten.Image) {
 		op.GeoM.Translate(0, 50)
 		screen.DrawImage(mmImg, op)
 	}
+}
+
+func drawSpriteBox(screen *ebiten.Image, sprite *Sprite) {
+	r := sprite.ScreenRect()
+	if r == nil {
+		return
+	}
+
+	minX, minY := float32(r.Min.X), float32(r.Min.Y)
+	maxX, maxY := float32(r.Max.X), float32(r.Max.Y)
+
+	vector.StrokeRect(screen, minX, minY, maxX-minX, maxY-minY, 1, color.RGBA{255, 0, 0, 255}, false)
+}
+
+func drawSpriteIndicator(screen *ebiten.Image, sprite *Sprite) {
+	r := sprite.ScreenRect()
+	if r == nil {
+		return
+	}
+
+	dX, dY := float32(r.Dx())/8, float32(r.Dy())/8
+	midX, minY := float32(r.Max.X)-float32(r.Dx())/2, float32(r.Min.Y)-dY
+
+	vector.StrokeLine(screen, midX, minY+dY, midX-dX, minY, 1, color.RGBA{0, 255, 0, 255}, false)
+	vector.StrokeLine(screen, midX, minY+dY, midX+dX, minY, 1, color.RGBA{0, 255, 0, 255}, false)
+	vector.StrokeLine(screen, midX-dX, minY, midX+dX, minY, 1, color.RGBA{0, 255, 0, 255}, false)
 }

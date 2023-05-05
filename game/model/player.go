@@ -1,9 +1,9 @@
 package model
 
 import (
+	"fmt"
 	"image/color"
 	"lintech/rego/game/loader"
-	"lintech/rego/iregoter"
 	"log"
 	"math"
 
@@ -16,26 +16,63 @@ const (
 )
 
 type Player struct {
-	rgData iregoter.RegoterData
-	cfg    iregoter.GameCfg
+	Reactor
+	rgData RegoterData
+	cfg    GameCfg
 
-	txChan     iregoter.RgTxMsgbox
-	health     int
-	mouse      iregoter.MousePosition
-	CameraZ    float64
-	Moved      bool
-	Weapon     *Weapon
-	WeaponSet  []*Weapon
-	LastWeapon *Weapon
+	health         int
+	mouse          MousePosition
+	CameraZ        float64
+	Moved          bool
+	weapon         RcTx
+	weaponTemplate *WeaponTemplate
+	weaponSet      []*WeaponTemplate
 
 	// Movement in this tick
 }
 
-func NewPlayer(coreMsgbox chan<- iregoter.IRegoterEvent) *Regoter[*Player] {
-	entity := iregoter.Entity{
+func (r *Player) Run() {
+	r.running = true
+	var err error
+	for r.running {
+		msg := <-r.rx
+		err = r.process(msg)
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
+}
+
+func (r *Player) process(m ReactorEventMessage) error {
+	// logger.Print(fmt.Sprintf("(%v) recv %T", r.thing.GetData().Entity.RgId, e))
+	switch m.event.(type) {
+	case EventUpdateTick:
+		r.eventHandleUpdateTick(m.sender, m.event.(EventUpdateTick))
+	case EventUpdateData:
+		r.eventHandleUpdateData(m.sender, m.event.(EventUpdateData))
+	case EventCfgChanged:
+		r.eventHandleCfgChanged(m.sender, m.event.(EventCfgChanged))
+	// case EventInput:
+	// 	r.eventHandleInput(m.sender, m.event.(EventInput))
+	default:
+		r.eventHandleUnknown(m.sender, m.event)
+	}
+	return nil
+}
+func (r *Player) eventHandleCfgChanged(sender RcTx, e EventCfgChanged) {
+	r.cfg = e.Cfg
+}
+
+func (r *Player) eventHandleUnknown(sender RcTx, e IReactorEvent) error {
+	logger.Fatal("Unknown event:", e)
+	return nil
+}
+
+func NewPlayer(coreTx RcTx) RcTx {
+	entity := Entity{
 		RgId:            RgIdGenerator.GenId(),
-		RgType:          iregoter.RegoterEnumPlayer,
-		Position:        iregoter.Position{X: 8.5, Y: 3.5, Z: 0},
+		RgType:          RegoterEnumPlayer,
+		Position:        Position{X: 8.5, Y: 3.5, Z: 0},
 		Scale:           1,
 		Angle:           geom.Radians(60.0),
 		Pitch:           0,
@@ -46,32 +83,27 @@ func NewPlayer(coreMsgbox chan<- iregoter.IRegoterEvent) *Regoter[*Player] {
 		CollisionHeight: 0.5,
 	}
 
-	// di := iregoter.DrawInfo{
-	// 	ImgLayer:    iregoter.ImgLayerSprite,
-	// 	Img:         crosshairsResource.texture,
-	// 	Columns:     8,
-	// 	Rows:        8,
-	// 	SpriteIndex: 55,
-	// 	HitIndex:    57,
-	// }
+	rc := NewReactor()
 	t := &Player{
-		rgData: iregoter.RegoterData{
+		Reactor: rc,
+		rgData: RegoterData{
 			Entity: entity,
 		},
-		txChan:    coreMsgbox,
 		health:    fullHealth,
 		CameraZ:   0.5,
 		Moved:     false,
-		WeaponSet: NewWeapons(),
+		weaponSet: NewWeapons(coreTx),
 	}
-	t.SelectWeapon(1)
 	// t.rgData.DrawInfo = t.Weapon.di
 	// if t.rgData.DrawInfo.Img == nil {
 	// 	logger.Fatal("Invalid nil Img for NewPlayer()")
 	// }
 
-	r := NewRegoter(coreMsgbox, t)
-	return r
+	go t.Run()
+	m := ReactorEventMessage{t.tx, EventRegisterRegoter{t.tx, t.rgData}}
+	coreTx <- m
+	t.SelectWeapon(coreTx, 0)
+	return t.tx
 }
 
 type playerSheet struct {
@@ -80,69 +112,77 @@ type playerSheet struct {
 	pitch float64
 }
 
-func (p *Player) AddWeapon(w *Weapon) {
-	p.WeaponSet = append(p.WeaponSet, w)
+func (p *Player) AddWeapon(w *WeaponTemplate) {
+	p.weaponSet = append(p.weaponSet, w)
 }
 
-func (p *Player) SelectWeapon(weaponIndex int) *Weapon {
+func (p *Player) SelectWeapon(coreTx RcTx, index int) RcTx {
 	// TODO: add some kind of sheath/unsheath animation
-	if weaponIndex < 0 || weaponIndex > len(p.WeaponSet) {
-		log.Fatalf("weaponIndex %v is out of range (0, %v)", weaponIndex, len(p.WeaponSet))
+	if index < 0 || index > len(p.weaponSet) {
+		log.Fatalf("weaponIndex %v is out of range (0, %v)", index, len(p.weaponSet))
 	}
-	newWeapon := p.WeaponSet[weaponIndex]
-	if newWeapon == nil || newWeapon == p.Weapon {
-		return p.Weapon
+	newTemplate := p.weaponSet[index]
+	if newTemplate == nil || newTemplate == p.weaponTemplate {
+		return p.weapon
 	} else {
-		p.LastWeapon = p.Weapon
-		if p.LastWeapon != nil {
-			// store as last weapon
-			p.LastWeapon.Holster(p.txChan)
+		if p.weapon != nil {
+			p.HolsterWeapon()
 		}
-		p.Weapon = newWeapon
-		p.Weapon.Use(p.txChan)
-		return p.Weapon
+		p.weaponTemplate = newTemplate
+		p.weapon = p.weaponTemplate.Spawn(coreTx)
+		return p.weapon
 	}
 }
-
-func (p *Player) NextWeapon(reverse bool) *Weapon {
-	_, weaponIndex := p.getSelectedWeapon()
-	if weaponIndex < 0 {
-		// check last weapon in event of unsheathing previously sheathed weapon
-		weaponIndex = p.getWeaponIndex(p.LastWeapon)
-		if weaponIndex < 0 {
-			weaponIndex = 0
-		}
-		return p.SelectWeapon(weaponIndex)
-	}
-
-	weaponIndex++
-	if weaponIndex >= len(p.WeaponSet) {
-		weaponIndex = 0
-	}
-	return p.SelectWeapon(weaponIndex)
+func (p *Player) HolsterWeapon() {
+	m := ReactorEventMessage{p.tx, EventHolsterWeapon{}}
+	p.weapon <- m
 }
 
-func (p *Player) getWeaponIndex(w *Weapon) int {
-	if w == nil {
-		return -1
-	}
-	for index, wCheck := range p.WeaponSet {
-		if wCheck == w {
-			return index
-		}
-	}
-	return -1
+func (p *Player) fireWeapon() {
+	m := ReactorEventMessage{p.tx, EventFireWeapon{}}
+	p.weapon <- m
+
 }
 
-func (p *Player) getSelectedWeapon() (*Weapon, int) {
-	if p.Weapon == nil {
-		return nil, -1
-	}
+// func (p *Player) NextWeapon(reverse bool) *Weapon {
+// 	_, weaponIndex := p.getSelectedWeapon()
+// 	if weaponIndex < 0 {
+// 		// check last weapon in event of unsheathing previously sheathed weapon
+// 		weaponIndex = p.getWeaponIndex(p.LastWeapon)
+// 		if weaponIndex < 0 {
+// 			weaponIndex = 0
+// 		}
+// 		return p.SelectWeapon(weaponIndex)
+// 	}
 
-	return p.Weapon, p.getWeaponIndex(p.Weapon)
-}
+// 	weaponIndex++
+// 	if weaponIndex >= len(p.weaponSet) {
+// 		weaponIndex = 0
+// 	}
+// 	return p.SelectWeapon(weaponIndex)
+// }
 
-func isMoving(m iregoter.RegoterMove) bool {
+// func (p *Player) getWeaponIndex(w *Weapon) int {
+// 	if w == nil {
+// 		return -1
+// 	}
+// 	for index, wCheck := range p.weaponSet {
+// 		if wCheck == w {
+// 			return index
+// 		}
+// 	}
+// 	return -1
+// }
+
+// func (p *Player) getSelectedWeapon() (*Weapon, int) {
+// 	if p.weapon == nil {
+// 		return nil, -1
+// 	}
+
+// 	return p.weapon, p.getWeaponIndex(p.weapon)
+// }
+
+func isMoving(m Movement) bool {
 	if math.Abs(float64(m.Acceleration)) > MinimumVelocity ||
 		math.Abs(float64(m.Velocity)) > MinimumVelocity ||
 		m.MoveRotate != 0 || m.PitchRotate != 0 ||
@@ -153,19 +193,24 @@ func isMoving(m iregoter.RegoterMove) bool {
 	}
 }
 
-func (p *Player) UpdateTick(cu iregoter.RgTxMsgbox) {
+func (p *Player) eventHandleUpdateTick(sender RcTx, e IReactorEvent) {
 	// Debug
-	movement := handlePlayerInput(p.cfg, &p.mouse)
+	movement, action := handlePlayerInput(p.cfg, &p.mouse)
 	movement.Velocity = p.rgData.Entity.Velocity
-	if !movement.KeyPressed {
+	if !action.KeyPressed {
 		movement.MoveRotate = p.rgData.Entity.LastMoveRotate
 	}
 
 	if isMoving(movement) {
 		// log.Printf("VissionRotate = %.3f", movement.VissionRotate)
 		// log.Printf("Moverotate = %.3f", movement.MoveRotate)
-		e := iregoter.RegoterEventUpdatedMove{RgId: p.rgData.Entity.RgId, Move: movement}
-		cu <- e
+		e := EventUpdatedMove{RgId: p.rgData.Entity.RgId, Move: movement}
+		m := ReactorEventMessage{p.tx, e}
+		sender <- m
+	}
+
+	if action.FireWeapon {
+		p.fireWeapon()
 	}
 	// if info, ok := p.drawWeapon(screenSize); ok {
 	// 	cu <- info
@@ -179,13 +224,8 @@ func (p *Player) UpdateTick(cu iregoter.RgTxMsgbox) {
 	// }
 }
 
-func (p *Player) UpdateData(cu iregoter.RgTxMsgbox, rgEntity iregoter.Entity,
-	rgState iregoter.RegoterState) bool {
-	// Debug
-	p.rgData.Entity = rgEntity
-	// if rgState.HasCollision {
-	// }
-	return true
+func (p *Player) eventHandleUpdateData(sender RcTx, e EventUpdateData) {
+	p.rgData.Entity = e.RgEntity
 }
 
 // // Move player by move speed in the forward/backward direction
@@ -241,9 +281,6 @@ func (p *Player) Prone() {
 	p.Moved = true
 }
 
-// Todo
-func (p *Player) fireWeapon() {}
-
 // func (p *Player) fireWeapon() {
 // 	w := p.Weapon
 // 	if w == nil {
@@ -281,7 +318,7 @@ func (p *Player) fireWeapon() {}
 // 	}
 // }
 
-// func (p *Player) drawWeapon(sz iregoter.ScreenSize) (iregoter.RegoterUpdatedImg, bool) {
+// func (p *Player) drawWeapon(sz ScreenSize) (RegoterUpdatedImg, bool) {
 // 	// draw equipped weapon
 // 	if p.Weapon != nil {
 // 		w := p.Weapon
@@ -301,19 +338,19 @@ func (p *Player) fireWeapon() {}
 
 // 		img := w.Texture()
 // 		changed := true
-// 		info := iregoter.RegoterUpdatedImg{ImgOp: op, Sprite: nil, Img: img,
+// 		info := RegoterUpdatedImg{ImgOp: op, Sprite: nil, Img: img,
 // 			Visiable: true, Deleted: false, Changed: changed}
 // 		return info, true
 // 	} else {
-// 		info := iregoter.RegoterUpdatedImg{}
+// 		info := RegoterUpdatedImg{}
 // 		return info, false
 // 	}
 // }
 
-func (c *Player) SetConfig(cfg iregoter.GameCfg) {
+func (c *Player) SetConfig(cfg GameCfg) {
 	c.cfg = cfg
 }
 
-func (c *Player) GetData() iregoter.RegoterData {
+func (c *Player) GetData() RegoterData {
 	return c.rgData
 }

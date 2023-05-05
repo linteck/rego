@@ -1,8 +1,7 @@
-package game
+package model
 
 import (
 	"fmt"
-	"lintech/rego/iregoter"
 	"log"
 	"math"
 	"math/rand"
@@ -11,44 +10,64 @@ import (
 	"strings"
 	"time"
 
-	"lintech/rego/game/model"
-
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/spf13/viper"
 )
 
-// type gameTxMsgbox chan<- iregoter.IRegoterEvent
-// type gameRxMsgbox <-chan iregoter.ICoreEvent
+// type gameTxMsgbox chan<- IRegoterEvent
+// type gameRxMsgbox <-chan ICoreEvent
 
 type Game struct {
-	txToCore   iregoter.RgTxMsgbox
-	rxFromCore iregoter.RgRxMsgbox
-
+	Reactor
 	// Raycaster
 	menu   *DemoMenu
 	paused bool
 
-	//--create slicer and declare slices--//
+	mouseInfo MousePosition
+	cfg       GameCfg
+	coreTx    RcTx
+}
 
-	//--define camera and render scene--//
-	//camera *raycaster.Camera
+func (r *Game) processMessage() {
+	var err error
+	moreMsg := true
+	for moreMsg {
+		select {
+		case msg := <-r.rx:
+			err = r.process(msg)
+			if err != nil {
+				fmt.Println(err)
+			}
+		default:
+			moreMsg = false
+		}
+	}
+}
 
-	mouseInfo iregoter.MousePosition
-	cfg       iregoter.GameCfg
+func (r *Game) process(m ReactorEventMessage) error {
+	// logger.Print(fmt.Sprintf("(%v) recv %T", r.thing.GetData().Entity.RgId, e))
+	switch m.event.(type) {
+	default:
+		r.eventHandleUnknown(m.sender, m.event)
+	}
+	return nil
+}
+
+func (g *Game) eventHandleUnknown(sender RcTx, e IReactorEvent) error {
+	logger.Fatal(fmt.Sprintf("Unknown event: %T", e))
+	return nil
 }
 
 // Update - Allows the game to run logic such as updating the world, gathering input, and playing audio.
 // Update is called every tick (1/60 [s] by default).
 func (g *Game) Update() error {
-	// handle input (when paused making sure only to allow input for closing menu so it can be unpaused)
-
+	// g.processMessage()
 	g.handleInput(g.mouseInfo)
 	if !g.paused {
-		e := iregoter.GameEventTick{}
-		g.txToCore <- e
+		m := ReactorEventMessage{g.tx, EventGameTick{}}
+		g.coreTx <- m
 	}
-
 	// update the menu (if active)
 	g.menu.update()
 
@@ -69,9 +88,9 @@ func (g *Game) Run() {
 // Draw draws the game screen.
 // Draw is called every frame (typically 1/60[s] for 60Hz display).
 func (g *Game) Draw(screen *ebiten.Image) {
-	e := iregoter.GameEventDraw{Screen: screen}
-	g.txToCore <- e
-	<-g.rxFromCore
+	m := ReactorEventMessage{g.tx, EventDraw{Screen: screen}}
+	g.coreTx <- m
+	<-g.rx
 
 	// draw menu (if active)
 	g.menu.draw(screen)
@@ -103,34 +122,32 @@ func NewGame() *Game {
 	g := new(Game)
 	g.initConfig()
 
-	txToCore, rxFromCore := NewCore(&g.cfg)
-	g.txToCore = txToCore
-	g.rxFromCore = rxFromCore
+	coreTx := NewCore(g.cfg)
 
 	// Todo
 
 	// create crosshairs and weapon
-	model.NewCrosshairs(txToCore)
-	model.NewPlayer(txToCore)
+	NewCrosshairs(coreTx)
+	NewPlayer(coreTx)
 	for i := 0; i < 1; i++ {
-		// model.NewSorcerer(txToCore)
-		// model.NewWalker(txToCore)
-		// model.NewBat(txToCore)
-		model.NewRock(txToCore)
+		// NewSorcerer(coreTx)
+		// NewWalker(coreTx)
+		// NewBat(coreTx)
+		NewRock(coreTx)
 	}
 
 	// Todo
 	// init the sprites
 	// g.loadSprites()
 
-	if g.cfg.OsType == iregoter.OsTypeBrowser {
+	if g.cfg.OsType == OsTypeBrowser {
 		// web browser cannot start with cursor captured
 	} else {
 		ebiten.SetCursorMode(ebiten.CursorModeCaptured)
 	}
 
 	// init mouse look mode
-	g.cfg.MouseMode = iregoter.MouseModeLook
+	g.cfg.MouseMode = MouseModeLook
 	g.mouseInfo.X, g.mouseInfo.Y = math.MinInt32, math.MinInt32
 
 	// init menu system
@@ -146,9 +163,9 @@ func (g *Game) initConfig() {
 	// special behavior needed for wasm play
 	switch runtime.GOOS {
 	case "js":
-		g.cfg.OsType = iregoter.OsTypeBrowser
+		g.cfg.OsType = OsTypeBrowser
 	default:
-		g.cfg.OsType = iregoter.OsTypeDesktop
+		g.cfg.OsType = OsTypeDesktop
 	}
 
 	// setup environment variable with DEMO as prefix (e.g. "export DEMO_SCREEN_VSYNC=false")
@@ -172,7 +189,7 @@ func (g *Game) initConfig() {
 	viper.SetDefault("screen.renderFloor", true)
 	viper.SetDefault("screen.fovDegrees", 68)
 
-	if g.cfg.OsType == iregoter.OsTypeBrowser {
+	if g.cfg.OsType == OsTypeBrowser {
 		viper.SetDefault("screen.width", 800)
 		viper.SetDefault("screen.height", 600)
 		viper.SetDefault("screen.renderScale", 0.5)
@@ -229,24 +246,23 @@ func (g *Game) SaveConfig() error {
 	return err
 }
 
-func (g *Game) handleInput(si iregoter.MousePosition) bool {
-
+func (g *Game) handleInput(si MousePosition) bool {
 	menuKeyPressed := inpututil.IsKeyJustPressed(ebiten.KeyEscape) || inpututil.IsKeyJustPressed(ebiten.KeyF1)
 	if menuKeyPressed {
 		if g.menu.active {
-			if g.cfg.OsType == iregoter.OsTypeBrowser && inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+			if g.cfg.OsType == OsTypeBrowser && inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
 				// do not allow Esc key close menu in browser, since Esc key releases browser mouse capture
 			} else {
 				g.closeMenu()
-				e := iregoter.GameEventCfgChanged{Cfg: g.cfg}
-				g.txToCore <- e
+				m := ReactorEventMessage{g.tx, EventCfgChanged{Cfg: g.cfg}}
+				g.coreTx <- m
 			}
 		} else {
 			g.openMenu()
 		}
 	}
 
-	if g.cfg.OsType == iregoter.OsTypeBrowser && ebiten.CursorMode() == ebiten.CursorModeVisible && !g.menu.active {
+	if g.cfg.OsType == OsTypeBrowser && ebiten.CursorMode() == ebiten.CursorModeVisible && !g.menu.active {
 		// not working sometimes (https://developer.mozilla.org/en-US/docs/Web/API/Pointer_Lock_API#iframe_limitations):
 		//   sm_exec.js:349 pointerlockerror event is fired. 'sandbox="allow-pointer-lock"' might be required at an iframe.
 		//   This function on browsers must be called as a result of a gestural interaction or orientation change.

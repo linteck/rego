@@ -1,4 +1,4 @@
-package iregoter
+package model
 
 import (
 	"image/color"

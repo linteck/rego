@@ -1,31 +1,62 @@
 package model
 
 import (
+	"fmt"
 	"image/color"
 	"lintech/rego/game/loader"
-	"lintech/rego/iregoter"
 
 	"github.com/harbdog/raycaster-go"
 )
 
 type Crosshairs struct {
-	rgData iregoter.RegoterData
+	Reactor
+	rgData RegoterData
 }
 
-func NewCrosshairs(coreMsgbox chan<- iregoter.IRegoterEvent) *Regoter[*Crosshairs] {
+func (r *Crosshairs) Run() {
+	r.running = true
+	var err error
+	for r.running {
+		msg := <-r.rx
+		err = r.process(msg)
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
+}
+
+func (r *Crosshairs) process(m ReactorEventMessage) error {
+	// logger.Print(fmt.Sprintf("(%v) recv %T", r.thing.GetData().Entity.RgId, e))
+	switch m.event.(type) {
+	case EventUpdateTick:
+		r.eventHandleUpdateTick(m.sender, m.event.(EventUpdateTick))
+	case EventUpdateData:
+		r.eventHandleUpdateData(m.sender, m.event.(EventUpdateData))
+	default:
+		r.eventHandleUnknown(m.sender, m.event)
+	}
+	return nil
+}
+
+func (r *Crosshairs) eventHandleUnknown(sender RcTx, e IReactorEvent) error {
+	logger.Fatal("Unknown event:", e)
+	return nil
+}
+
+func NewCrosshairs(coreTx RcTx) RcTx {
 	//loadCrosshairsResource()
-	entity := iregoter.Entity{
+	entity := Entity{
 		RgId:            RgIdGenerator.GenId(),
-		RgType:          iregoter.RegoterEnumCrosshair,
-		Position:        iregoter.Position{X: 5, Y: 5, Z: 0},
+		RgType:          RegoterEnumCrosshair,
+		Position:        Position{X: 5, Y: 5, Z: 0},
 		Scale:           2,
 		MapColor:        color.RGBA{255, 0, 0, 255},
 		Anchor:          raycaster.AnchorCenter,
 		CollisionRadius: 0,
 		CollisionHeight: 0,
 	}
-	di := iregoter.DrawInfo{
-		ImgLayer:    iregoter.ImgLayerSprite,
+	di := DrawInfo{
+		ImgLayer:    ImgLayerSprite,
 		Img:         loader.GetSpriteFromFile("crosshairs_sheet.png"),
 		Columns:     8,
 		Rows:        8,
@@ -33,14 +64,16 @@ func NewCrosshairs(coreMsgbox chan<- iregoter.IRegoterEvent) *Regoter[*Crosshair
 		HitIndex:    57,
 	}
 	t := &Crosshairs{
-		rgData: iregoter.RegoterData{
+		rgData: RegoterData{
 			Entity:   entity,
 			DrawInfo: di,
 		},
 	}
 
-	r := NewRegoter(coreMsgbox, t)
-	return r
+	go t.Run()
+	m := ReactorEventMessage{t.tx, EventRegisterRegoter{t.tx, t.rgData}}
+	coreTx <- m
+	return t.tx
 }
 
 // func (c *Crosshairs) ActivateHitIndicator(hitTime int) {
@@ -53,18 +86,11 @@ func NewCrosshairs(coreMsgbox chan<- iregoter.IRegoterEvent) *Regoter[*Crosshair
 // 	return c.HitIndicator != nil && c.hitTimer > 0
 // }
 
-func (c *Crosshairs) UpdateTick(cu iregoter.RgTxMsgbox) {
-
+func (c *Crosshairs) eventHandleUpdateTick(sender RcTx, e EventUpdateTick) {
 }
 
-func (c *Crosshairs) UpdateData(cu iregoter.RgTxMsgbox, rgEntity iregoter.Entity,
-	rgState iregoter.RegoterState) bool {
-	return true
+func (c *Crosshairs) eventHandleUpdateData(sender RcTx, e EventUpdateData) {
 }
 
-func (c *Crosshairs) SetConfig(cfg iregoter.GameCfg) {
-}
-
-func (c *Crosshairs) GetData() iregoter.RegoterData {
-	return c.rgData
+func (c *Crosshairs) SetConfig(cfg GameCfg) {
 }

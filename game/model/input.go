@@ -2,15 +2,15 @@ package model
 
 import (
 	"fmt"
-	"lintech/rego/iregoter"
 	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/harbdog/raycaster-go/geom"
 )
 
-func handlePlayerInput(cfg iregoter.GameCfg, lastPosition *iregoter.MousePosition) iregoter.RegoterMove {
-	movement := iregoter.RegoterMove{}
+func handlePlayerInput(cfg GameCfg, lastPosition *MousePosition) (Movement, Action) {
+	movement := Movement{}
+	action := Action{}
 	forward := false
 	backward := false
 	rotLeft := false
@@ -22,28 +22,28 @@ func handlePlayerInput(cfg iregoter.GameCfg, lastPosition *iregoter.MousePositio
 	}
 
 	switch {
-	case ebiten.IsKeyPressed(ebiten.KeyControl) && cfg.OsType == iregoter.OsTypeBrowser:
+	case ebiten.IsKeyPressed(ebiten.KeyControl) && cfg.OsType == OsTypeBrowser:
 		// debug cursor mode not intended for browser purposes
-		if cfg.MouseMode != iregoter.MouseModeCursor {
+		if cfg.MouseMode != MouseModeCursor {
 			ebiten.SetCursorMode(ebiten.CursorModeVisible)
-			cfg.MouseMode = iregoter.MouseModeCursor
+			cfg.MouseMode = MouseModeCursor
 		}
 
 	case ebiten.IsKeyPressed(ebiten.KeyAlt):
-		if cfg.MouseMode != iregoter.MouseModeMove {
+		if cfg.MouseMode != MouseModeMove {
 			ebiten.SetCursorMode(ebiten.CursorModeCaptured)
-			cfg.MouseMode = iregoter.MouseModeMove
+			cfg.MouseMode = MouseModeMove
 			lastPosition.X, lastPosition.Y = math.MinInt32, math.MinInt32
 		}
 
-	case cfg.MouseMode != iregoter.MouseModeLook:
+	case cfg.MouseMode != MouseModeLook:
 		ebiten.SetCursorMode(ebiten.CursorModeCaptured)
-		cfg.MouseMode = iregoter.MouseModeLook
+		cfg.MouseMode = MouseModeLook
 		lastPosition.X, lastPosition.Y = math.MinInt32, math.MinInt32
 	}
 
 	switch cfg.MouseMode {
-	case iregoter.MouseModeCursor:
+	case MouseModeCursor:
 		lastPosition.X, lastPosition.Y = ebiten.CursorPosition()
 		if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
 			fmt.Printf("mouse left clicked: (%v, %v)\n", lastPosition.X, lastPosition.Y)
@@ -53,11 +53,11 @@ func handlePlayerInput(cfg iregoter.GameCfg, lastPosition *iregoter.MousePositio
 			fmt.Printf("mouse right clicked: (%v, %v)\n", lastPosition.X, lastPosition.Y)
 		}
 
-	case iregoter.MouseModeMove:
+	case MouseModeMove:
 		x, y := ebiten.CursorPosition()
 
 		if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
-			movement.FireWeapon = true
+			action.FireWeapon = true
 			// p.fireWeapon()
 		}
 
@@ -91,11 +91,11 @@ func handlePlayerInput(cfg iregoter.GameCfg, lastPosition *iregoter.MousePositio
 				movement.Acceleration = 0.01 * float64(dy) * moveModifier
 			}
 		}
-	case iregoter.MouseModeLook:
+	case MouseModeLook:
 		x, y := ebiten.CursorPosition()
 
 		if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
-			movement.FireWeapon = true
+			action.FireWeapon = true
 		}
 
 		// Todo
@@ -150,22 +150,22 @@ func handlePlayerInput(cfg iregoter.GameCfg, lastPosition *iregoter.MousePositio
 
 	if ebiten.IsKeyPressed(ebiten.KeyA) || ebiten.IsKeyPressed(ebiten.KeyLeft) {
 		rotLeft = true
-		movement.KeyPressed = true
+		action.KeyPressed = true
 	}
 	if ebiten.IsKeyPressed(ebiten.KeyD) || ebiten.IsKeyPressed(ebiten.KeyRight) {
 		rotRight = true
-		movement.KeyPressed = true
+		action.KeyPressed = true
 	}
 
 	if ebiten.IsKeyPressed(ebiten.KeyW) || ebiten.IsKeyPressed(ebiten.KeyUp) {
 		forward = true
 		// Becase when go forward, the movement.MoveRotate is 0.
 		// We need to know if direction Key is pressed.
-		movement.KeyPressed = true
+		action.KeyPressed = true
 	}
 	if ebiten.IsKeyPressed(ebiten.KeyS) || ebiten.IsKeyPressed(ebiten.KeyDown) {
 		backward = true
-		movement.KeyPressed = true
+		action.KeyPressed = true
 	}
 
 	// if ebiten.IsKeyPressed(ebiten.KeyC) {
@@ -185,7 +185,7 @@ func handlePlayerInput(cfg iregoter.GameCfg, lastPosition *iregoter.MousePositio
 		movement.MoveRotate = geom.Pi
 	}
 
-	if cfg.MouseMode == iregoter.MouseModeLook || cfg.MouseMode == iregoter.MouseModeMove {
+	if cfg.MouseMode == MouseModeLook || cfg.MouseMode == MouseModeMove {
 		// strafe instead of rotate
 		if rotLeft {
 			movement.Acceleration = 0.05 * moveModifier
@@ -202,5 +202,5 @@ func handlePlayerInput(cfg iregoter.GameCfg, lastPosition *iregoter.MousePositio
 		}
 	}
 
-	return movement
+	return movement, action
 }

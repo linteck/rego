@@ -1,9 +1,9 @@
-package game
+package model
 
 import (
 	"fmt"
 	"image/color"
-	"lintech/rego/iregoter"
+	"os"
 
 	"github.com/ebitenui/ebitenui/image"
 	"github.com/ebitenui/ebitenui/widget"
@@ -35,7 +35,7 @@ func gamePage(menu *DemoMenu) *page {
 	)
 	c.AddChild(resume)
 
-	if menu.game.cfg.OsType == iregoter.OsTypeBrowser {
+	if menu.game.cfg.OsType == OsTypeBrowser {
 		// exit in browser kills but freezes the application, users can just close the tab/window
 	} else {
 		// show in game exit button
@@ -579,4 +579,9 @@ func (p *pageContainer) setPage(page *page) {
 	p.titleText.Label = page.title
 	p.flipBook.SetPage(page.content)
 	p.flipBook.RequestRelayout()
+}
+
+func exit(rc int) {
+	// TODO: any cleanup?
+	os.Exit(rc)
 }

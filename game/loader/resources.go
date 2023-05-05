@@ -110,7 +110,7 @@ func GetSpriteFromFile(sFile string) *ebiten.Image {
 // func (g *Game) loadSprites() {
 // 	g.projectiles = make(map[*model.Projectile]struct{}, 1024)
 // 	g.effects = make(map[*model.Effect]struct{}, 1024)
-// 	g.sprites = make(map[*iregoter.Sprite]struct{}, 128)
+// 	g.sprites = make(map[*Sprite]struct{}, 128)
 
 // 	// colors for minimap representation
 // 	blueish := color.RGBA{62, 62, 100, 96}
@@ -141,7 +141,7 @@ func GetSpriteFromFile(sFile string) *ebiten.Image {
 // 	redBoltPxRadius := 4.0
 // 	redBoltCollisionRadius := (redBoltScale * redBoltPxRadius) / float64(redBoltWidth)
 // 	redBoltCollisionHeight := 2 * redBoltCollisionRadius
-// 	redBoltProjectile := model.NewProjectile(
+// 	redBoltProjectile := model.ProjectileTemplate(
 // 		0, 0, redBoltScale, redBoltImg, reddish,
 // 		raycaster.AnchorCenter, redBoltCollisionRadius, redBoltCollisionHeight,
 // 	)
@@ -324,11 +324,11 @@ func GetSpriteFromFile(sFile string) *ebiten.Image {
 // 	g.addSprite(model.NewSprite(13.5, 8, 1.0, g.tex.textures[14], orange, raycaster.AnchorBottom, 0, 0))
 // }
 
-// func (g *Game) addSprite(sprite *iregoter.Sprite) {
+// func (g *Game) addSprite(sprite *Sprite) {
 // 	g.sprites[sprite] = struct{}{}
 // }
 
-// // func (g *Game) deleteSprite(sprite *iregoter.Sprite) {
+// // func (g *Game) deleteSprite(sprite *Sprite) {
 // // 	delete(g.sprites, sprite)
 // // }
 

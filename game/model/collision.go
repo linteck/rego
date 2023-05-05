@@ -1,18 +1,17 @@
-package game
+package model
 
 import (
 	"math"
 	"sort"
 
 	"lintech/rego/game/loader"
-	"lintech/rego/iregoter"
 
 	"github.com/harbdog/raycaster-go"
 	"github.com/harbdog/raycaster-go/geom"
 )
 
 type EntityCollision struct {
-	entity     *iregoter.Entity
+	entity     *Entity
 	collision  *geom.Vector2
 	collisionZ float64
 }
@@ -21,7 +20,7 @@ type EntityCollision struct {
 // was encountered, and a list of entity collisions that may have been encountered
 // NOTE: Bug??
 // When collision with Wall, the []*EntityCollision is empty!
-func (g *Core) getValidMove(entity *iregoter.Entity,
+func (g *Core) getValidMove(entity *Entity,
 	moveX, moveY, moveZ float64, checkAlternate bool) (*geom.Vector2, bool, []*EntityCollision) {
 
 	posX, posY, posZ := entity.Position.X, entity.Position.Y, entity.Position.Z
@@ -44,8 +43,8 @@ func (g *Core) getValidMove(entity *iregoter.Entity,
 	}
 
 	// check sprite against player collision
-	var player *iregoter.Sprite = nil
-	pl := g.rgs[iregoter.RegoterEnumPlayer]
+	var player *Sprite = nil
+	pl := g.rgs[RegoterEnumPlayer]
 	if pl.Len() > 0 {
 		player = pl.Iterate().Value().sprite
 	}
@@ -79,8 +78,8 @@ func (g *Core) getValidMove(entity *iregoter.Entity,
 	}
 
 	// check sprite collisions
-	g.rgs[iregoter.RegoterEnumSprite].ForEach(
-		func(i iregoter.ID, r *regoterInCore) {
+	g.rgs[RegoterEnumSprite].ForEach(
+		func(i ID, r *regoterInCore) {
 			sprite := r.sprite
 			// TODO: only check intersection of nearby sprites instead of all of them
 			if entity.RgId == sprite.Entity.RgId || entity.ParentId == sprite.Entity.RgId || entity.CollisionRadius <= 0 || sprite.Entity.CollisionRadius <= 0 {
@@ -208,7 +207,7 @@ func (g *Core) getValidMove(entity *iregoter.Entity,
 }
 
 // zEntityIntersection returns the best Position.Z intersection point on the target from the source (-1 if no intersection)
-func zEntityIntersection(sourceZ float64, source, target *iregoter.Entity) float64 {
+func zEntityIntersection(sourceZ float64, source, target *Entity) float64 {
 	srcMinZ, srcMaxZ := zEntityMinMax(sourceZ, source)
 	tgtMinZ, tgtMaxZ := zEntityMinMax(target.Position.Z, target)
 
@@ -226,7 +225,7 @@ func zEntityIntersection(sourceZ float64, source, target *iregoter.Entity) float
 }
 
 // zEntityMinMax calculates the minZ/maxZ used for basic collision checking in the Z-plane
-func zEntityMinMax(Z float64, entity *iregoter.Entity) (float64, float64) {
+func zEntityMinMax(Z float64, entity *Entity) (float64, float64) {
 	var minZ, maxZ float64
 	collisionHeight := entity.CollisionHeight
 

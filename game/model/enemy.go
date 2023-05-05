@@ -1,8 +1,8 @@
 package model
 
 import (
+	"fmt"
 	"lintech/rego/game/loader"
-	"lintech/rego/iregoter"
 	"math/rand"
 
 	"github.com/harbdog/raycaster-go"
@@ -12,20 +12,51 @@ import (
 const fullHealth = 100
 
 type Enemy struct {
-	rgData       iregoter.RegoterData
+	Reactor
+	rgData       RegoterData
 	health       int
 	hasCollision bool
 }
 
-func NewEnemy(coreMsgbox chan<- iregoter.IRegoterEvent,
-	po iregoter.Position, di iregoter.DrawInfo, scale float64,
-	cp iregoter.CollisionSpace, velocity float64,
+func (r *Enemy) Run() {
+	r.running = true
+	var err error
+	for r.running {
+		msg := <-r.rx
+		err = r.process(msg)
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
+}
+
+func (r *Enemy) process(m ReactorEventMessage) error {
+	// logger.Print(fmt.Sprintf("(%v) recv %T", r.thing.GetData().Entity.RgId, e))
+	switch m.event.(type) {
+	case EventUpdateTick:
+		r.eventHandleUpdateTick(m.sender, m.event.(EventUpdateTick))
+	case EventUpdateData:
+		r.eventHandleUpdateData(m.sender, m.event.(EventUpdateData))
+	default:
+		r.eventHandleUnknown(m.sender, m.event)
+	}
+	return nil
+}
+
+func (r *Enemy) eventHandleUnknown(sender RcTx, e IReactorEvent) error {
+	logger.Fatal("Unknown event:", e)
+	return nil
+}
+
+func NewEnemy(coreTx RcTx,
+	po Position, di DrawInfo, scale float64,
+	cp CollisionSpace, velocity float64,
 	anchor raycaster.SpriteAnchor,
-) *Regoter[*Enemy] {
+) RcTx {
 	//loadEnemyResource()
-	entity := iregoter.Entity{
+	entity := Entity{
 		RgId:            RgIdGenerator.GenId(),
-		RgType:          iregoter.RegoterEnumSprite,
+		RgType:          RegoterEnumSprite,
 		Position:        po,
 		Scale:           scale,
 		MapColor:        yellow,
@@ -36,15 +67,17 @@ func NewEnemy(coreMsgbox chan<- iregoter.IRegoterEvent,
 		Angle:           rand.Float64() * geom.Pi2,
 	}
 	t := &Enemy{
-		rgData: iregoter.RegoterData{
+		rgData: RegoterData{
 			Entity:   entity,
 			DrawInfo: di,
 		},
 		health: fullHealth,
 	}
 
-	r := NewRegoter(coreMsgbox, t)
-	return r
+	go t.Run()
+	m := ReactorEventMessage{t.tx, EventRegisterRegoter{t.tx, t.rgData}}
+	coreTx <- m
+	return t.tx
 }
 
 // func (c *Enemy) ActivateHitIndicator(hitTime int) {
@@ -56,9 +89,9 @@ func NewEnemy(coreMsgbox chan<- iregoter.IRegoterEvent,
 //	func (c *Enemy) IsHitIndicatorActive() bool {
 //		return c.HitIndicator != nil && c.hitTimer > 0
 //	}
-func (c *Enemy) UpdateTick(cu iregoter.RgTxMsgbox) {
+func (c *Enemy) eventHandleUpdateTick(sender RcTx, e EventUpdateTick) {
 	// Debug
-	movement := iregoter.RegoterMove{
+	movement := Movement{
 		Velocity: c.rgData.Entity.Velocity,
 	}
 	if c.hasCollision {
@@ -66,39 +99,39 @@ func (c *Enemy) UpdateTick(cu iregoter.RgTxMsgbox) {
 		// log.Printf("%+v", movement)
 	}
 	if isMoving(movement) {
-		e := iregoter.RegoterEventUpdatedMove{RgId: c.rgData.Entity.RgId, Move: movement}
-		cu <- e
+		e := EventUpdatedMove{RgId: c.rgData.Entity.RgId, Move: movement}
+		m := ReactorEventMessage{c.tx, e}
+		sender <- m
 	}
 }
 
-func (c *Enemy) UpdateData(cu iregoter.RgTxMsgbox, rgEntity iregoter.Entity,
-	rgState iregoter.RegoterState) bool {
+func (c *Enemy) eventHandleUpdateData(sender RcTx, e EventUpdateData) {
 
-	c.rgData.Entity = rgEntity
-	c.hasCollision = rgState.HasCollision
+	c.rgData.Entity = e.RgEntity
+	c.hasCollision = e.RgState.HasCollision
 
 	// log.Printf("Update Data %+v", c.rgData.Entity)
 	//log.Printf("enemy: %+v", rgEntity)
 	// c.health -= rgState.HitHarm
 	if c.health <= 0 {
 		// Send Unregister to show 'Die'
-		cu <- iregoter.RegoterEventRegoterUnregister{RgId: c.rgData.Entity.RgId}
-		return false
+		e := EventUnregisterRegoter{RgId: c.rgData.Entity.RgId}
+		m := ReactorEventMessage{c.tx, e}
+		sender <- m
 	}
-	return true
 
 }
 
-func (c *Enemy) SetConfig(cfg iregoter.GameCfg) {
+func (c *Enemy) SetConfig(cfg GameCfg) {
 }
 
-func (c *Enemy) GetData() iregoter.RegoterData {
+func (c *Enemy) GetData() RegoterData {
 	return c.rgData
 }
 
 var cnt = 1
 
-func NewSorcerer(txToCore iregoter.RgTxMsgbox) {
+func NewSorcerer(conrTx RcTx) {
 	sorcImg := loader.GetSpriteFromFile("sorcerer_sheet.png")
 	sorcWidth, sorcHeight := sorcImg.Bounds().Dx(), sorcImg.Bounds().Dy()
 	sorcCols, sorcRows := 10, 1
@@ -112,18 +145,18 @@ func NewSorcerer(txToCore iregoter.RgTxMsgbox) {
 	y := float64(2+cnt/100) * collisionRadius * 4
 	x := float64(2+cnt%100) * collisionRadius * 4
 
-	NewEnemy(txToCore,
-		iregoter.Position{X: x, Y: y, Z: 0},
-		iregoter.DrawInfo{
+	NewEnemy(conrTx,
+		Position{X: x, Y: y, Z: 0},
+		DrawInfo{
 			Img:               sorcImg,
-			ImgLayer:          iregoter.ImgLayerSprite,
+			ImgLayer:          ImgLayerSprite,
 			Columns:           sorcCols,
 			Rows:              sorcRows,
 			AnimationRate:     5,
 			AnimationReversed: false,
 		},
 		sorcScale,
-		iregoter.CollisionSpace{
+		CollisionSpace{
 			CollisionRadius: collisionRadius,
 			CollisionHeight: collisionHeight,
 		},
@@ -134,7 +167,7 @@ func NewSorcerer(txToCore iregoter.RgTxMsgbox) {
 
 }
 
-func NewWalker(txToCore iregoter.RgTxMsgbox) {
+func NewWalker(coreTx RcTx) {
 	// animated walking 8-directional sprite character
 	// [walkerTexFacingMap] player facing angle : texture row index
 	var walkerTexFacingMap = map[float64]int{
@@ -163,11 +196,11 @@ func NewWalker(txToCore iregoter.RgTxMsgbox) {
 	y := float64(2+cnt/100)*walkerCollisionRadius*4 + walkerCollisionRadius*4
 	x := float64(2+cnt%100) * walkerCollisionRadius * 4
 
-	NewEnemy(txToCore,
-		iregoter.Position{X: x, Y: y, Z: 0},
-		iregoter.DrawInfo{
+	NewEnemy(coreTx,
+		Position{X: x, Y: y, Z: 0},
+		DrawInfo{
 			Img:               walkerImg,
-			ImgLayer:          iregoter.ImgLayerSprite,
+			ImgLayer:          ImgLayerSprite,
 			Columns:           walkerCols,
 			Rows:              walkerRows,
 			AnimationRate:     5,
@@ -175,7 +208,7 @@ func NewWalker(txToCore iregoter.RgTxMsgbox) {
 			TexFacingMap:      &walkerTexFacingMap,
 		},
 		walkerScale,
-		iregoter.CollisionSpace{
+		CollisionSpace{
 			CollisionRadius: walkerCollisionRadius,
 			CollisionHeight: walkerCollisionHeight,
 		},
@@ -186,7 +219,7 @@ func NewWalker(txToCore iregoter.RgTxMsgbox) {
 	// log.Printf("%v, %v", walkerCollisionRadius, walkerCollisionHeight)
 }
 
-func NewBat(txToCore iregoter.RgTxMsgbox) {
+func NewBat(coreTx RcTx) {
 	// animated flying 4-directional sprite creature
 	// [batTexFacingMap] player facing angle : texture row index
 	var batTexFacingMap = map[float64]int{
@@ -221,11 +254,11 @@ func NewBat(txToCore iregoter.RgTxMsgbox) {
 	y := float64(2+cnt/100)*batCollisionRadius*4 + batCollisionRadius*40
 	x := float64(2+cnt%100) * batCollisionRadius * 4
 
-	NewEnemy(txToCore,
-		iregoter.Position{X: x, Y: y, Z: 3},
-		iregoter.DrawInfo{
+	NewEnemy(coreTx,
+		Position{X: x, Y: y, Z: 3},
+		DrawInfo{
 			Img:               batImg,
-			ImgLayer:          iregoter.ImgLayerSprite,
+			ImgLayer:          ImgLayerSprite,
 			Columns:           batCols,
 			Rows:              batRows,
 			AnimationRate:     5,
@@ -233,7 +266,7 @@ func NewBat(txToCore iregoter.RgTxMsgbox) {
 			TexFacingMap:      &batTexFacingMap,
 		},
 		batScale,
-		iregoter.CollisionSpace{
+		CollisionSpace{
 			CollisionRadius: batCollisionRadius,
 			CollisionHeight: batCollisionHeight,
 		},
@@ -244,7 +277,7 @@ func NewBat(txToCore iregoter.RgTxMsgbox) {
 	// log.Printf("%v, %v", batCollisionRadius, batCollisionHeight)
 }
 
-func NewRock(txToCore iregoter.RgTxMsgbox) {
+func NewRock(coreTx RcTx) {
 	// rock that can be jumped over but not walked through
 	rockImg := loader.GetSpriteFromFile("large_rock.png")
 	rockWidth, rockHeight := rockImg.Bounds().Dx(), rockImg.Bounds().Dy()
@@ -259,16 +292,16 @@ func NewRock(txToCore iregoter.RgTxMsgbox) {
 	x := 8.0
 	y := 5.5
 
-	NewEnemy(txToCore,
-		iregoter.Position{X: x, Y: y, Z: 0},
-		iregoter.DrawInfo{
+	NewEnemy(coreTx,
+		Position{X: x, Y: y, Z: 0},
+		DrawInfo{
 			Img:      rockImg,
-			ImgLayer: iregoter.ImgLayerSprite,
+			ImgLayer: ImgLayerSprite,
 			Columns:  rockCols,
 			Rows:     rockRows,
 		},
 		rockScale,
-		iregoter.CollisionSpace{
+		CollisionSpace{
 			CollisionRadius: rockCollisionRadius,
 			CollisionHeight: rockCollisionHeight,
 		},

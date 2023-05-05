@@ -1,20 +1,26 @@
 package model
 
 import (
+	"fmt"
 	"image/color"
 	"lintech/rego/game/loader"
-	"lintech/rego/iregoter"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/harbdog/raycaster-go"
 )
 
-type Weapon struct {
-	rgData     iregoter.RegoterData
-	firing     bool
+type WeaponTemplate struct {
+	rgData     RegoterData
+	projectile *ProjectileTemplate
 	cooldown   int
 	rateOfFire float64
-	projectile *Projectile
+}
+
+type Weapon struct {
+	Reactor
+	WeaponTemplate
+	firing     bool
+	fireWeapon bool
 }
 
 var (
@@ -27,65 +33,125 @@ var (
 	yellow  = color.RGBA{255, 200, 0, 196}
 )
 
-func NewWeaponChargedBolt() *Weapon {
+func (r *Weapon) Run() {
+	r.running = true
+	var err error
+	for r.running {
+		msg := <-r.rx
+		err = r.process(msg)
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
+}
+
+func (r *Weapon) process(m ReactorEventMessage) error {
+	// logger.Print(fmt.Sprintf("(%v) recv %T", r.thing.GetData().Entity.RgId, e))
+	switch m.event.(type) {
+	case EventUpdateTick:
+		r.eventHandleUpdateTick(m.sender, m.event.(EventUpdateTick))
+	case EventUpdateData:
+		r.eventHandleUpdateData(m.sender, m.event.(EventUpdateData))
+	case EventCfgChanged:
+		r.eventHandleCfgChanged(m.sender, m.event.(EventCfgChanged))
+	case EventFireWeapon:
+		r.eventHandleFireWeapon(m.sender, m.event.(EventInput))
+	default:
+		r.eventHandleUnknown(m.sender, m.event)
+	}
+	return nil
+}
+
+// Update the position and status of Regoter
+// And send new Position and status to IGame
+func (r *Weapon) eventHandleUpdateData(sender RcTx, e EventUpdateData) {
+}
+
+func (w *Weapon) eventHandleUpdateTick(sender RcTx, e EventUpdateTick) error {
+	if w.fireWeapon {
+		if w.cooldown > 0 {
+			w.cooldown -= 1
+		} else {
+			w.cooldown = int(1 / w.rateOfFire * float64(ebiten.TPS()))
+			w.projectile.Spawn(sender, w.rgData)
+			w.fireWeapon = false
+		}
+	}
+	return nil
+}
+
+func (r *Weapon) eventHandleCfgChanged(sender RcTx, e EventCfgChanged) error {
+	return nil
+}
+
+func (r *Weapon) eventHandleFireWeapon(sender RcTx, e EventInput) error {
+	r.fireWeapon = true
+	return nil
+}
+
+func (r *Weapon) eventHandleUnknown(sender RcTx, e IReactorEvent) error {
+	logger.Fatal("Unknown event:", e)
+	return nil
+}
+
+func NewWeaponChargedBolt(coreTx RcTx) *WeaponTemplate {
 	effect := NewBlueExplosionEffect()
-	projectile := NewProjectileChargedBolt(effect)
+	projectile := ProjectileChargedBolt(effect)
 
 	RoF := 2.0
 	scale := 1.0
-	di := iregoter.DrawInfo{
+	di := DrawInfo{
 		Img:           loader.GetSpriteFromFile("hand_spell.png"),
 		Columns:       3,
 		Rows:          1,
 		AnimationRate: 7,
 	}
-	weapon := NewWeapon(di, scale, projectile, RoF)
-	return weapon
+	t := NewWeaponTemplate(coreTx, di, scale, projectile, RoF)
+	return t
 }
 
-func NewWeaponRedBolt() *Weapon {
+func NewWeaponRedBolt(coreTx RcTx) *WeaponTemplate {
 	effect := NewRedExplosionEffect()
-	projectile := NewProjectileChargedBolt(effect)
+	projectile := ProjectileChargedBolt(effect)
 
 	RoF := 6.0
 	scale := 1.0
-	di := iregoter.DrawInfo{
+	di := DrawInfo{
 		Img:           loader.GetSpriteFromFile("hand_staff.png"),
 		Columns:       3,
 		Rows:          1,
 		AnimationRate: 7,
 	}
-	weapon := NewWeapon(di, scale, projectile, RoF)
-	return weapon
+	t := NewWeaponTemplate(coreTx, di, scale, projectile, RoF)
+	return t
 }
 
-func NewWeapons() []*Weapon {
-	weapons := []*Weapon{
-		NewWeaponChargedBolt(), NewWeaponRedBolt()}
+func NewWeapons(coreTx RcTx) []*WeaponTemplate {
+	weapons := []*WeaponTemplate{
+		NewWeaponChargedBolt(coreTx), NewWeaponRedBolt(coreTx)}
 
 	return weapons
 }
 
-func NewWeapon(di iregoter.DrawInfo, scale float64,
-	projectile *Projectile, rateOfFire float64,
-) *Weapon {
-	entity := iregoter.Entity{
+func NewWeaponTemplate(coreTx RcTx, di DrawInfo, scale float64,
+	projectile *ProjectileTemplate, rateOfFire float64,
+) *WeaponTemplate {
+	entity := Entity{
 		RgId:            RgIdGenerator.GenId(),
-		RgType:          iregoter.RegoterEnumWeapon,
+		RgType:          RegoterEnumWeapon,
 		Scale:           scale,
-		Position:        iregoter.Position{X: 1, Y: 1, Z: 0},
+		Position:        Position{X: 1, Y: 1, Z: 0},
 		MapColor:        color.RGBA{0, 0, 0, 0},
 		Anchor:          raycaster.AnchorCenter,
 		CollisionRadius: 0,
 		CollisionHeight: 0,
 	}
 
-	w := Weapon{
-		rgData: iregoter.RegoterData{
+	w := WeaponTemplate{
+		rgData: RegoterData{
 			Entity:   entity,
 			DrawInfo: di,
 		},
-		firing:     false,
 		cooldown:   0,
 		rateOfFire: rateOfFire,
 		projectile: projectile,
@@ -94,63 +160,34 @@ func NewWeapon(di iregoter.DrawInfo, scale float64,
 	return &w
 }
 
-func (w Weapon) Use(coreMsgbox chan<- iregoter.IRegoterEvent) *Regoter[*Weapon] {
-	r := NewRegoter(coreMsgbox, &w)
-	return r
-}
-
-func (w Weapon) Holster(coreMsgbox chan<- iregoter.IRegoterEvent) {
-	//r := NewRegoter(coreMsgbox, &w)
-}
-
-func (c *Weapon) UpdateTick(cu iregoter.RgTxMsgbox) {
-
-}
-
-func (c *Weapon) UpdateData(cu iregoter.RgTxMsgbox, rgEntity iregoter.Entity,
-	rgState iregoter.RegoterState) bool {
-	return true
-}
-
-func (c *Weapon) SetConfig(cfg iregoter.GameCfg) {
-}
-
-func (c *Weapon) GetData() iregoter.RegoterData {
-	return c.rgData
-}
-
-func (w *Weapon) Fire() bool {
-	if w.cooldown <= 0 {
-		// TODO: handle rate of fire greater than 60 per second?
-		w.cooldown = int(1 / w.rateOfFire * float64(ebiten.TPS()))
-
-		if !w.firing {
-			w.firing = true
-			//Todo
-			// w.Sprite.ResetAnimation()
-		}
-
-		return true
+func NewWeapon(coreTx RcTx, tp *WeaponTemplate) RcTx {
+	w := Weapon{
+		Reactor:        NewReactor(),
+		WeaponTemplate: *tp,
 	}
-	return false
+	go w.Run()
+	m := ReactorEventMessage{w.tx, EventRegisterRegoter{w.tx, w.rgData}}
+	coreTx <- m
+
+	return w.tx
 }
 
-func (w *Weapon) OnCooldown() bool {
-	return w.cooldown > 0
+func (t *WeaponTemplate) Spawn(coreTx RcTx) RcTx {
+	return NewWeapon(coreTx, t)
 }
 
-func (w *Weapon) ResetCooldown() {
-	w.cooldown = 0
+func (w *Weapon) PullTrigger(pulledTrigger bool) {
+	w.fireWeapon = pulledTrigger || w.fireWeapon
 }
 
-func (w *Weapon) Update() {
-	if w.cooldown > 0 {
-		w.cooldown -= 1
-	}
-	// if w.firing && w.Sprite.LoopCounter() < 1 {
-	// 	w.Sprite.Update(nil)
-	// } else {
-	// 	w.firing = false
-	// 	w.Sprite.ResetAnimation()
-	// }
-}
+// func (w *Weapon) Update() {
+// 	if w.cooldown > 0 {
+// 		w.cooldown -= 1
+// 	}
+// 	// if w.firing && w.Sprite.LoopCounter() < 1 {
+// 	// 	w.Sprite.Update(nil)
+// 	// } else {
+// 	// 	w.firing = false
+// 	// 	w.Sprite.ResetAnimation()
+// 	// }
+// }

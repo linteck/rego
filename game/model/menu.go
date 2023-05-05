@@ -1,8 +1,7 @@
-package game
+package model
 
 import (
 	"fmt"
-	"lintech/rego/iregoter"
 	"log"
 	"os"
 
@@ -16,7 +15,7 @@ type DemoMenu struct {
 	ui        *ebitenui.UI
 	root      *widget.Container
 	res       *uiResources
-	mouseInfo *iregoter.MousePosition
+	mouseInfo *MousePosition
 	game      *Game
 
 	resolutions []MenuResolution
@@ -142,7 +141,7 @@ func (g *Game) generateMenuResolutions() []MenuResolution {
 func (g *Game) openMenu() {
 	g.paused = true
 	g.menu.active = true
-	g.cfg.MouseMode = iregoter.MouseModeCursor
+	g.cfg.MouseMode = MouseModeCursor
 	ebiten.SetCursorMode(ebiten.CursorModeVisible)
 
 	// for color menu items [1, 1, 1] represents NRGBA{255, 255, 255}
@@ -164,7 +163,7 @@ func (g *Game) closeMenu() {
 	ebiten.SetCursorMode(ebiten.CursorModeCaptured)
 	g.paused = false
 	g.menu.active = false
-	g.cfg.MouseMode = iregoter.MouseModeLook
+	g.cfg.MouseMode = MouseModeLook
 }
 
 func (m *DemoMenu) layout(w, h int) {
