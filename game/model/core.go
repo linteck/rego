@@ -69,8 +69,8 @@ func (g *Core) ProcessMessage(m ReactorEventMessage) error {
 	case EventUnregisterRegoter:
 		g.eventHandleRegoterUnregister(m.sender, m.event.(EventUnregisterRegoter))
 
-	case EventUpdatedMove:
-		g.eventHandleUpdatedMove(m.sender, m.event.(EventUpdatedMove))
+	case EventMovement:
+		g.eventHandleMovement(m.sender, m.event.(EventMovement))
 
 	default:
 		g.eventHandleUnknown(m.sender, m.event)
@@ -79,11 +79,23 @@ func (g *Core) ProcessMessage(m ReactorEventMessage) error {
 	return nil
 }
 
+func (g *Core) getPlayer() *regoterInCore {
+	// check sprite against player collision
+	var player *regoterInCore = nil
+	pl := g.rgs[RegoterEnumPlayer]
+	if pl.Len() > 0 {
+		player = pl.Iterate().Value()
+	}
+	return player
+}
+
 func (g *Core) eventHandleGameEventTick(sender RcTx, e EventGameTick) {
+	player := g.getPlayer()
 	for _, l := range g.rgs {
 		l.ForEach(func(k ID, v *regoterInCore) {
-			e := ReactorEventMessage{g.tx, EventUpdateTick{RgState: v.state}}
-			v.tx <- e
+			m := ReactorEventMessage{g.tx,
+				EventUpdateTick{RgState: v.state, RgEntity: v.entity, PlayerEntity: player.entity}}
+			v.tx <- m
 		})
 	}
 
@@ -169,7 +181,7 @@ func (g *Core) findRegoter(id ID) (*regoterInCore, bool) {
 	return nil, false
 }
 
-func (g *Core) eventHandleUpdatedMove(sender RcTx, e EventUpdatedMove) {
+func (g *Core) eventHandleMovement(sender RcTx, e EventMovement) {
 	if p, ok := g.findRegoter(e.RgId); ok {
 		moved := g.updatedMove(p, sender, e)
 		if moved && (p.rgType == RegoterEnumPlayer) {
@@ -184,7 +196,7 @@ func (g *Core) eventHandleUpdatedMove(sender RcTx, e EventUpdatedMove) {
 	}
 }
 
-func (g *Core) updatedMove(p *regoterInCore, sender RcTx, e EventUpdatedMove) bool {
+func (g *Core) updatedMove(p *regoterInCore, sender RcTx, e EventMovement) bool {
 	pe := &p.entity
 	rgType := pe.RgType
 	velocity := math.Max(pe.Velocity+e.Move.Acceleration, 0)
@@ -265,16 +277,14 @@ func (g *Core) eventHandleUnknown(sender RcTx, e IReactorEvent) error {
 
 func (g *Core) removeAllUnregisteredRogeter() {
 	for _, l := range g.rgs {
-		ids := make([]ID, l.Len())
-		index := 0
+		ids := make([]ID, 0, l.Len())
 		l.ForEach(func(id ID, val *regoterInCore) {
 			if val.state.Unregistered {
-				ids[index] = id
-				index++
+				ids = append(ids, id)
 			}
 		})
-		for i := range ids[:index] {
-			l.Remove(ids[i])
+		for _, id := range ids {
+			l.Remove(id)
 		}
 	}
 }

@@ -190,7 +190,7 @@ func (p *Player) eventHandleUpdateTick(sender RcTx, e IReactorEvent) {
 	if isMoving(movement) {
 		// log.Printf("VissionRotate = %.3f", movement.VissionRotate)
 		// log.Printf("Moverotate = %.3f", movement.MoveRotate)
-		e := EventUpdatedMove{RgId: p.rgData.Entity.RgId, Move: movement}
+		e := EventMovement{RgId: p.rgData.Entity.RgId, Move: movement}
 		m := ReactorEventMessage{p.tx, e}
 		sender <- m
 	}

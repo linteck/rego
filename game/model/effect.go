@@ -98,13 +98,14 @@ func NewEffect(coreTx RcTx, et *EffectTemplate) RcTx {
 	}
 	// Don't use ID of Template
 	ef.rgData.Entity.RgId = RgIdGenerator.GenId()
+	//
 	go ef.Reactor.Run(ef)
 	m := ReactorEventMessage{ef.tx, EventRegisterRegoter{ef.tx, ef.rgData}}
 	coreTx <- m
 	return ef.tx
 }
 
-func (ef *EffectTemplate) Spawn(coreTx RcTx, w RegoterData) {
+func (ef *EffectTemplate) Spawn(coreTx RcTx) {
 	NewEffect(coreTx, ef)
 }
 

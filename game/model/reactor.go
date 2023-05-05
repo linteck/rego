@@ -188,7 +188,9 @@ type EventFireWeapon struct {
 }
 
 type EventUpdateTick struct {
-	RgState RegoterState
+	RgEntity     Entity
+	RgState      RegoterState
+	PlayerEntity Entity
 }
 type EventUpdateData struct {
 	RgEntity Entity
@@ -206,7 +208,7 @@ type EventUnregisterRegoter struct {
 	RgId ID
 }
 
-type EventUpdatedMove struct {
+type EventMovement struct {
 	RgId ID
 	Move Movement
 }

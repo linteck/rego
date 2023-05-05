@@ -21,41 +21,34 @@ func (g *Core) miniMap() *image.RGBA {
 		}
 	}
 
-	// sprite positions, sort by color to avoid random color getting chosen as last when using map keys
-	sl := g.rgs[RegoterEnumSprite]
-	sprites := make([]*Entity, 0, sl.Len())
-	sl.ForEach(func(_ ID, s *regoterInCore) {
-		sprites = append(sprites, &s.entity)
-	})
-	sort.Slice(sprites, func(i, j int) bool {
-		iComp := (sprites[i].MapColor.R + sprites[i].MapColor.G + sprites[i].MapColor.B)
-		jComp := (sprites[j].MapColor.R + sprites[j].MapColor.G + sprites[j].MapColor.B)
-		return iComp < jComp
-	})
-
-	for _, sprite := range sprites {
-		if sprite.MapColor.A > 0 {
-
-			m.Set(int(sprite.Position.X), int(sprite.Position.Y), sprite.MapColor)
-		}
+	typesNeedDraw := []RegoterEnum{
+		RegoterEnumSprite,
+		RegoterEnumProjectile,
+		RegoterEnumEffect,
 	}
+	// draw sprite screen indicators to show we know where it was raycasted (must occur after camera.Update)
+	for _, t := range typesNeedDraw {
+		sl := g.rgs[t]
+		sl.ForEach(func(i ID, val *regoterInCore) {
+			if val.sprite != nil {
+				// sprite positions, sort by color to avoid random color getting chosen as last when using map keys
+				sprites := make([]*Entity, 0, sl.Len())
+				sl.ForEach(func(_ ID, s *regoterInCore) {
+					if s.entity.MapColor.A > 0 {
+						sprites = append(sprites, &s.entity)
+					}
+				})
+				sort.Slice(sprites, func(i, j int) bool {
+					iComp := (sprites[i].MapColor.R + sprites[i].MapColor.G + sprites[i].MapColor.B)
+					jComp := (sprites[j].MapColor.R + sprites[j].MapColor.G + sprites[j].MapColor.B)
+					return iComp < jComp
+				})
 
-	// projectile positions
-	pjl := g.rgs[RegoterEnumProjectile]
-	projectiles := make([]*Entity, 0, pjl.Len())
-	pjl.ForEach(func(_ ID, p *regoterInCore) {
-		projectiles = append(projectiles, &p.entity)
-	})
-	sort.Slice(projectiles, func(i, j int) bool {
-		iComp := (projectiles[i].MapColor.R + projectiles[i].MapColor.G + projectiles[i].MapColor.B)
-		jComp := (projectiles[j].MapColor.R + projectiles[j].MapColor.G + projectiles[j].MapColor.B)
-		return iComp < jComp
-	})
-
-	for _, projectile := range projectiles {
-		if projectile.MapColor.A > 0 {
-			m.Set(int(projectile.Position.X), int(projectile.Position.Y), projectile.MapColor)
-		}
+				for _, sprite := range sprites {
+					m.Set(int(sprite.Position.X), int(sprite.Position.Y), sprite.MapColor)
+				}
+			}
+		})
 	}
 
 	// player position

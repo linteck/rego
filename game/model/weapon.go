@@ -61,7 +61,7 @@ func (w *Weapon) eventHandleUpdateTick(sender RcTx, e EventUpdateTick) error {
 			w.cooldown -= 1
 		} else {
 			w.cooldown = int(1 / w.rateOfFire * float64(ebiten.TPS()))
-			w.projectile.Spawn(sender, w.rgData)
+			w.projectile.Spawn(sender, e.PlayerEntity)
 			w.fireWeapon = false
 		}
 	}
@@ -100,7 +100,7 @@ func NewWeaponChargedBolt(coreTx RcTx) *WeaponTemplate {
 
 func NewWeaponRedBolt(coreTx RcTx) *WeaponTemplate {
 	effect := NewRedExplosionEffect()
-	projectile := ProjectileChargedBolt(effect)
+	projectile := ProjectileRedBolt(effect)
 
 	RoF := 6.0
 	scale := 1.0
@@ -164,10 +164,6 @@ func NewWeapon(coreTx RcTx, tp *WeaponTemplate) RcTx {
 
 func (t *WeaponTemplate) Spawn(coreTx RcTx) RcTx {
 	return NewWeapon(coreTx, t)
-}
-
-func (w *Weapon) PullTrigger(pulledTrigger bool) {
-	w.fireWeapon = pulledTrigger || w.fireWeapon
 }
 
 // func (w *Weapon) Update() {

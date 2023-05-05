@@ -40,6 +40,30 @@ func (r *Projectile) eventHandleUnknown(sender RcTx, e IReactorEvent) error {
 	log.Fatal("Unknown event:", e)
 	return nil
 }
+func (c *Projectile) eventHandleUpdateTick(sender RcTx, e EventUpdateTick) {
+
+	if e.RgState.HasCollision {
+		c.effect.Spawn(sender)
+		m := ReactorEventMessage{c.tx, EventUnregisterRegoter{RgId: c.rgData.Entity.RgId}}
+		sender <- m
+		c.running = false
+	} else {
+		m := ReactorEventMessage{c.tx, EventMovement{RgId: c.rgData.Entity.RgId,
+			Move: Movement{Velocity: c.rgData.Entity.Velocity}}}
+		sender <- m
+	}
+
+}
+
+func (c *Projectile) eventHandleUpdateData(sender RcTx, e EventUpdateData) {
+}
+
+func (p *ProjectileTemplate) Spawn(coreTx RcTx, aim Entity) RcTx {
+	return NewProjectile(coreTx, p, aim)
+}
+
+func (c *Projectile) eventHandleCfgChanged(sender RcTx, e EventCfgChanged) {
+}
 
 func NewProjectile(coreTx RcTx, pt *ProjectileTemplate, aim Entity) RcTx {
 	p := &Projectile{
@@ -68,7 +92,7 @@ func NewProjectileTemplate(di DrawInfo,
 		RgType:          RegoterEnumProjectile,
 		Scale:           scale,
 		Velocity:        velocity,
-		MapColor:        color.RGBA{0, 0, 0, 0},
+		MapColor:        color.RGBA{0, 0, 255, 200},
 		Anchor:          raycaster.AnchorCenter,
 		CollisionRadius: collision.CollisionRadius,
 		CollisionHeight: collision.CollisionHeight,
@@ -84,26 +108,6 @@ func NewProjectileTemplate(di DrawInfo,
 	}
 
 	return t
-}
-
-func (c *Projectile) eventHandleUpdateTick(sender RcTx, e EventUpdateTick) {
-	if e.RgState.HasCollision {
-		c.effect.Spawn(sender, c.rgData)
-		m := ReactorEventMessage{c.tx, EventUnregisterRegoter{RgId: c.rgData.Entity.RgId}}
-		sender <- m
-		c.running = false
-	}
-
-}
-
-func (c *Projectile) eventHandleUpdateData(sender RcTx, e EventUpdateData) {
-}
-
-func (p *ProjectileTemplate) Spawn(coreTx RcTx, w RegoterData) RcTx {
-	return NewProjectile(coreTx, p, w.Entity)
-}
-
-func (c *Projectile) eventHandleCfgChanged(sender RcTx, e EventCfgChanged) {
 }
 
 func ProjectileChargedBolt(effect *EffectTemplate) *ProjectileTemplate {
@@ -123,9 +127,35 @@ func ProjectileChargedBolt(effect *EffectTemplate) *ProjectileTemplate {
 	chargedBoltCollisionRadius := (chargedBoltScale * chargedBoltPxRadius) / (float64(chargedBoltWidth) / float64(chargedBoltCols))
 	chargedBoltCollisionHeight := 2 * chargedBoltCollisionRadius
 	collision := CollisionSpace{chargedBoltCollisionRadius, chargedBoltCollisionHeight}
-	chargedBoltVelocity := 6.0 // Velocity (as distance travelled/second)
+	// Debug
+	// chargedBoltVelocity := 6.0 // Velocity (as distance travelled/second)
+	chargedBoltVelocity := 0.2 // Velocity (as distance travelled/second)
 	chargedBoltProjectile := NewProjectileTemplate(di,
 		chargedBoltScale, collision, chargedBoltVelocity, effect, 1)
 
 	return chargedBoltProjectile
+}
+
+func ProjectileRedBolt(effect *EffectTemplate) *ProjectileTemplate {
+	// preload projectile sprites
+	redBoltImg := loader.GetSpriteFromFile("red_bolt.png")
+	redBoltWidth := redBoltImg.Bounds().Dx()
+	redBoltCols, redBoltRows := 1, 1
+	redBoltScale := 0.25
+	di := DrawInfo{
+		Img:           redBoltImg,
+		Columns:       redBoltCols,
+		Rows:          redBoltRows,
+		AnimationRate: 1,
+	}
+	// in pixels, radius to use for collision testing
+	redBoltPxRadius := 4.0
+	redBoltCollisionRadius := (redBoltScale * redBoltPxRadius) / (float64(redBoltWidth) / float64(redBoltCols))
+	redBoltCollisionHeight := 2 * redBoltCollisionRadius
+	collision := CollisionSpace{redBoltCollisionRadius, redBoltCollisionHeight}
+	redBoltVelocity := 6.0 // Velocity (as distance travelled/second)
+	redBoltProjectile := NewProjectileTemplate(di,
+		redBoltScale, collision, redBoltVelocity, effect, 1)
+
+	return redBoltProjectile
 }

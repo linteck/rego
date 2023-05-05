@@ -88,7 +88,7 @@ func (c *Enemy) eventHandleUpdateTick(sender RcTx, e EventUpdateTick) {
 		// log.Printf("%+v", movement)
 	}
 	if isMoving(movement) {
-		e := EventUpdatedMove{RgId: c.rgData.Entity.RgId, Move: movement}
+		e := EventMovement{RgId: c.rgData.Entity.RgId, Move: movement}
 		m := ReactorEventMessage{c.tx, e}
 		sender <- m
 	}

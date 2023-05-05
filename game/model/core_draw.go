@@ -15,7 +15,7 @@ func (g *Core) eventHandleGameEventDraw(sender RcTx, e EventDraw) {
 	g.drawScreen(e.Screen)
 
 	// Debug
-	// g.removeAllUnregisteredRogeter()
+	g.removeAllUnregisteredRogeter()
 	m := ReactorEventMessage{g.tx, EventDrawDone{}}
 	sender <- m
 
@@ -23,17 +23,26 @@ func (g *Core) eventHandleGameEventDraw(sender RcTx, e EventDraw) {
 
 func (g *Core) drawScreen(screen *ebiten.Image) {
 	// Put projectiles together with sprites for raycasting both as sprites
-	sl := g.rgs[RegoterEnumSprite]
-	numSprites := sl.Len()
-	raycastSprites := make([]raycaster.Sprite, numSprites)
+	typesNeedRaycast := []RegoterEnum{
+		RegoterEnumSprite,
+		RegoterEnumProjectile,
+		RegoterEnumEffect,
+	}
+	raycastSpritesLen := 0
+	for _, t := range typesNeedRaycast {
+		sl := g.rgs[t]
+		raycastSpritesLen += sl.Len()
+	}
 
-	index := 0
-	sl.ForEach(func(i ID, val *regoterInCore) {
-		if val.sprite != nil {
-			raycastSprites[index] = val.sprite
-			index += 1
-		}
-	})
+	raycastSprites := make([]raycaster.Sprite, 0, raycastSpritesLen)
+	for _, t := range typesNeedRaycast {
+		sl := g.rgs[t]
+		sl.ForEach(func(i ID, val *regoterInCore) {
+			if val.sprite != nil {
+				raycastSprites = append(raycastSprites, val.sprite)
+			}
+		})
+	}
 
 	// Update camera (calculate raycast)
 	g.camera.Update(raycastSprites)
@@ -45,15 +54,7 @@ func (g *Core) drawScreen(screen *ebiten.Image) {
 	g.drawWeapon(g.scene)
 	// apply lighting setting
 
-	if g.cfg.ShowSpriteBoxes {
-		// draw sprite screen indicators to show we know where it was raycasted (must occur after camera.Update)
-		sl.ForEach(func(i ID, val *regoterInCore) {
-			if val.sprite != nil {
-				drawSpriteBox(g.scene, val.sprite)
-			}
-		})
-	}
-
+	g.drawSpriteBoxes(g.scene)
 	// Todo
 	// // draw sprite screen indicator only for sprite at point of convergence
 	// convergenceSprite := g.camera.GetConvergenceSprite()
@@ -85,6 +86,25 @@ func (g *Core) drawScreen(screen *ebiten.Image) {
 
 }
 
+func (g *Core) drawSpriteBoxes(scene *ebiten.Image) {
+	if g.cfg.ShowSpriteBoxes {
+		typesNeedDrawbox := []RegoterEnum{
+			RegoterEnumSprite,
+			RegoterEnumProjectile,
+			RegoterEnumEffect,
+		}
+		// draw sprite screen indicators to show we know where it was raycasted (must occur after camera.Update)
+		for _, t := range typesNeedDrawbox {
+			sl := g.rgs[t]
+			sl.ForEach(func(i ID, val *regoterInCore) {
+				if val.sprite != nil {
+					drawSpriteBox(g.scene, val.sprite)
+				}
+			})
+		}
+	}
+
+}
 func (g *Core) drawWeapon(scene *ebiten.Image) {
 	sl := g.rgs[RegoterEnumWeapon]
 	sl.ForEach(func(i ID, val *regoterInCore) {

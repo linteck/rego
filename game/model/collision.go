@@ -43,12 +43,8 @@ func (g *Core) getValidMove(entity *Entity,
 	}
 
 	// check sprite against player collision
-	var player *Sprite = nil
-	pl := g.rgs[RegoterEnumPlayer]
-	if pl.Len() > 0 {
-		player = pl.Iterate().Value().sprite
-	}
-
+	playerInCore := g.getPlayer()
+	player := playerInCore.sprite
 	if nil != player && entity.RgId != player.Entity.RgId &&
 		entity.ParentId != player.Entity.RgId && entity.CollisionRadius > 0 {
 		// TODO: only check for collision if player is somewhat nearby
