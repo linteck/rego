@@ -10,10 +10,11 @@ import (
 )
 
 type WeaponTemplate struct {
-	rgData     RegoterData
-	projectile *ProjectileTemplate
-	cooldown   int
-	rateOfFire float64
+	rgData       RegoterData
+	projectile   *ProjectileTemplate
+	cooldownInit int
+	cooldown     int
+	rateOfFire   float64
 }
 
 type Weapon struct {
@@ -56,15 +57,18 @@ func (r *Weapon) eventHandleUpdateData(sender RcTx, e EventUpdateData) {
 }
 
 func (w *Weapon) eventHandleUpdateTick(sender RcTx, e EventUpdateTick) error {
+	if w.cooldown > 0 {
+		w.cooldown -= 1
+	}
 	if w.fireWeapon {
-		if w.cooldown > 0 {
-			w.cooldown -= 1
-		} else {
-			w.cooldown = int(1 / w.rateOfFire * float64(ebiten.TPS()))
+		if w.cooldown <= 0 {
+			w.cooldown = w.cooldownInit
 			w.projectile.Spawn(sender, e.PlayerEntity)
-			w.fireWeapon = false
 		}
 	}
+	// One click will generate two fireWeapon message.
+	// So we need clean up another fireWeapon satus in cooldown period.
+	w.fireWeapon = false
 	return nil
 }
 
@@ -135,14 +139,15 @@ func NewWeaponTemplate(coreTx RcTx, di DrawInfo, scale float64,
 		CollisionHeight: 0,
 	}
 
+	cooldownInit := int(float64(ebiten.TPS())/float64(rateOfFire)) + 1
 	w := WeaponTemplate{
 		rgData: RegoterData{
 			Entity:   entity,
 			DrawInfo: di,
 		},
-		cooldown:   0,
-		rateOfFire: rateOfFire,
-		projectile: projectile,
+		cooldown:     0,
+		cooldownInit: cooldownInit,
+		projectile:   projectile,
 	}
 
 	return &w

@@ -196,6 +196,8 @@ func (p *Player) eventHandleUpdateTick(sender RcTx, e IReactorEvent) {
 	}
 
 	if action.FireWeapon {
+		// One click will generate two fireWeapon message.
+		// (Because my finger is too slow.)
 		p.fireWeapon()
 	}
 	// if info, ok := p.drawWeapon(screenSize); ok {
