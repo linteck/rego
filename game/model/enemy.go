@@ -16,11 +16,16 @@ type Enemy struct {
 	rgData       RegoterData
 	health       int
 	hasCollision bool
+	harm         int
 }
 
 func (r *Enemy) ProcessMessage(m ReactorEventMessage) error {
 	// log.Print(fmt.Sprintf("(%v) recv %T", r.thing.GetData().Entity.RgId, e))
 	switch m.event.(type) {
+	case EventCollision:
+		r.eventHandleCollision(m.sender, m.event.(EventCollision))
+	case EventDamage:
+		r.eventHandleDamage(m.sender, m.event.(EventDamage))
 	case EventUpdateTick:
 		r.eventHandleUpdateTick(m.sender, m.event.(EventUpdateTick))
 	case EventUpdateData:
@@ -32,13 +37,27 @@ func (r *Enemy) ProcessMessage(m ReactorEventMessage) error {
 }
 
 func (r *Enemy) eventHandleUnknown(sender RcTx, e IReactorEvent) error {
-	log.Fatal("Unknown event:", e)
+	log.Fatalf("Unknown event: %T", e)
 	return nil
+}
+
+func (r *Enemy) eventHandleDamage(sender RcTx, e EventDamage) {
+	r.health -= e.damage
+	if r.health < 0 {
+		m := ReactorEventMessage{r.tx, EventUnregisterRegoter{RgId: r.rgData.Entity.RgId}}
+		sender <- m
+	}
+
+}
+
+func (c *Enemy) eventHandleCollision(sender RcTx, e EventCollision) {
+	m := ReactorEventMessage{c.tx, EventDamage{peer: e.collistion.peer, damage: c.harm}}
+	sender <- m
 }
 
 func NewEnemy(coreTx RcTx,
 	po Position, di DrawInfo, scale float64,
-	cp CollisionSpace, velocity float64,
+	cp CollisionSpace, velocity float64, harm int,
 	anchor raycaster.SpriteAnchor,
 ) RcTx {
 	//loadEnemyResource()
@@ -61,6 +80,7 @@ func NewEnemy(coreTx RcTx,
 			DrawInfo: di,
 		},
 		health: fullHealth,
+		harm:   harm,
 	}
 
 	go t.Reactor.Run(t)
@@ -150,6 +170,7 @@ func NewSorcerer(conrTx RcTx) {
 			CollisionHeight: collisionHeight,
 		},
 		sorcVelocity,
+		10,
 		raycaster.AnchorBottom,
 	)
 	// log.Printf("%v, %v", collisionRadius, collisionHeight)
@@ -202,6 +223,7 @@ func NewWalker(coreTx RcTx) {
 			CollisionHeight: walkerCollisionHeight,
 		},
 		walkerVelocity,
+		5,
 		raycaster.AnchorBottom,
 	)
 
@@ -260,6 +282,7 @@ func NewBat(coreTx RcTx) {
 			CollisionHeight: batCollisionHeight,
 		},
 		batVelocity,
+		3,
 		raycaster.AnchorTop,
 	)
 
@@ -295,6 +318,7 @@ func NewRock(coreTx RcTx) {
 			CollisionHeight: rockCollisionHeight,
 		},
 		rockVelocity,
+		0,
 		raycaster.AnchorBottom,
 	)
 	// log.Printf("%v, %v", collisionRadius, collisionHeight)

@@ -28,40 +28,9 @@ type Game struct {
 	coreTx RcTx
 }
 
-func (r *Game) processMessage() {
-	var err error
-	moreMsg := true
-	for moreMsg {
-		select {
-		case msg := <-r.rx:
-			err = r.ProcessMessage(msg)
-			if err != nil {
-				fmt.Println(err)
-			}
-		default:
-			moreMsg = false
-		}
-	}
-}
-
-func (r *Game) ProcessMessage(m ReactorEventMessage) error {
-	// log.Print(fmt.Sprintf("(%v) recv %T", r.thing.GetData().Entity.RgId, e))
-	switch m.event.(type) {
-	default:
-		r.eventHandleUnknown(m.sender, m.event)
-	}
-	return nil
-}
-
-func (g *Game) eventHandleUnknown(sender RcTx, e IReactorEvent) error {
-	log.Fatal(fmt.Sprintf("Unknown event: %T", e))
-	return nil
-}
-
 // Update - Allows the game to run logic such as updating the world, gathering input, and playing audio.
 // Update is called every tick (1/60 [s] by default).
 func (g *Game) Update() error {
-	// g.processMessage()
 	g.handleInput()
 	if !g.paused {
 		m := ReactorEventMessage{g.tx, EventGameTick{}}

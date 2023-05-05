@@ -84,7 +84,7 @@ func (r *Weapon) eventHandleFireWeapon(sender RcTx, e EventFireWeapon) error {
 }
 
 func (r *Weapon) eventHandleUnknown(sender RcTx, e IReactorEvent) error {
-	log.Fatal("Unknown event:", e)
+	log.Fatalf("Unknown event: %T", e)
 	return nil
 }
 

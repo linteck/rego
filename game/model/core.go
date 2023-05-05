@@ -1,7 +1,6 @@
 package model
 
 import (
-	"fmt"
 	"image/color"
 	"lintech/rego/game/loader"
 	"log"
@@ -72,6 +71,8 @@ func (g *Core) ProcessMessage(m ReactorEventMessage) error {
 	case EventMovement:
 		g.eventHandleMovement(m.sender, m.event.(EventMovement))
 
+	case EventDamage:
+		g.eventHandleDamage(m.sender, m.event.(EventDamage))
 	default:
 		g.eventHandleUnknown(m.sender, m.event)
 	}
@@ -195,6 +196,13 @@ func (g *Core) eventHandleMovement(sender RcTx, e EventMovement) {
 	}
 }
 
+func (g *Core) eventHandleDamage(sender RcTx, e EventDamage) {
+	if p, ok := g.findRegoter(e.peer); ok {
+		m := ReactorEventMessage{g.tx, EventDamage{peer: 0, damage: e.damage}}
+		p.tx <- m
+	}
+}
+
 func (g *Core) updatedMove(p *regoterInCore, sender RcTx, e EventMovement) bool {
 	pe := &p.entity
 	rgType := pe.RgType
@@ -219,7 +227,21 @@ func (g *Core) updatedMove(p *regoterInCore, sender RcTx, e EventMovement) bool 
 			lineEnd = &Position{X: moveLine.X2, Y: moveLine.Y2, Z: pe.Position.Z}
 			checkAlternate = true
 		}
-		newPos, hasCollision, _ := g.getValidMove(pe, lineEnd.X, lineEnd.Y, lineEnd.Z, checkAlternate)
+
+		newPos, hasCollision, collisionEntities := g.getValidMove(pe, lineEnd.X, lineEnd.Y, lineEnd.Z, checkAlternate)
+		if hasCollision {
+			// Send EventCollistion to both Entities in collistion
+			collissionForSender := collisionEntities[0]
+			sender <- ReactorEventMessage{
+				g.tx, EventCollision{collistion: *collissionForSender}}
+
+			peerId := collissionForSender.peer
+			if rg, ok := g.findRegoter(peerId); ok {
+				collisionForPeer := EntityCollision{peer: pe.RgId, distance: collissionForSender.distance, position: collissionForSender.position}
+				rg.tx <- ReactorEventMessage{
+					g.tx, EventCollision{collistion: collisionForPeer}}
+			}
+		}
 
 		// Debug
 		// Hit ground
@@ -273,7 +295,7 @@ func (g *Core) eventHandleRegoterUnregister(sender RcTx, e EventUnregisterRegote
 }
 
 func (g *Core) eventHandleUnknown(sender RcTx, e IReactorEvent) error {
-	log.Fatal(fmt.Sprintf("Unknown event: %T", e))
+	log.Fatalf("Unknown event: %T", e)
 	return nil
 }
 

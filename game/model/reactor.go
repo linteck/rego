@@ -164,9 +164,24 @@ type CollisionSpace struct {
 	CollisionHeight float64
 }
 
+type EntityCollision struct {
+	// entity     *Entity
+	position Position
+	peer     ID
+	distance float64
+}
+
+type EventCollision struct {
+	collistion EntityCollision
+}
+
 // Events
 type EventDebugPrint struct {
 	DebugString string
+}
+type EventDamage struct {
+	peer   ID
+	damage int
 }
 
 type EventCfgChanged struct {

@@ -27,7 +27,7 @@ func (r *Crosshairs) ProcessMessage(m ReactorEventMessage) error {
 }
 
 func (r *Crosshairs) eventHandleUnknown(sender RcTx, e IReactorEvent) error {
-	log.Fatal("Unknown event:", e)
+	log.Fatalf("Unknown event: %T", e)
 	return nil
 }
 

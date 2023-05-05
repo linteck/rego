@@ -39,6 +39,10 @@ func (r *Player) ProcessMessage(m ReactorEventMessage) error {
 		r.eventHandleUpdateData(m.sender, m.event.(EventUpdateData))
 	case EventCfgChanged:
 		r.eventHandleCfgChanged(m.sender, m.event.(EventCfgChanged))
+	case EventCollision:
+		r.eventHandleCollision(m.sender, m.event.(EventCollision))
+	case EventDamage:
+		r.eventHandleDamage(m.sender, m.event.(EventDamage))
 	// case EventInput:
 	// 	r.eventHandleInput(m.sender, m.event.(EventInput))
 	default:
@@ -46,12 +50,25 @@ func (r *Player) ProcessMessage(m ReactorEventMessage) error {
 	}
 	return nil
 }
+
+func (r *Player) eventHandleDamage(sender RcTx, e EventDamage) {
+	r.health -= e.damage
+	if r.health < 0 {
+		//Game End
+		// m := ReactorEventMessage{r.tx, EventUnregisterRegoter{RgId: r.rgData.Entity.RgId}}
+		// sender <- m
+	}
+}
+
+func (c *Player) eventHandleCollision(sender RcTx, e EventCollision) {
+}
+
 func (r *Player) eventHandleCfgChanged(sender RcTx, e EventCfgChanged) {
 	r.cfg = e.Cfg
 }
 
 func (r *Player) eventHandleUnknown(sender RcTx, e IReactorEvent) error {
-	log.Fatal("Unknown event:", e)
+	log.Fatalf("Unknown event: %T", e)
 	return nil
 }
 
