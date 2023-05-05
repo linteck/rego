@@ -63,7 +63,9 @@ func (w *Weapon) eventHandleUpdateTick(sender RcTx, e EventUpdateTick) error {
 	if w.fireWeapon {
 		if w.cooldown <= 0 {
 			w.cooldown = w.cooldownInit
-			w.projectile.Spawn(sender, e.PlayerEntity)
+
+			w.projectile.Spawn(sender, w.WeaponTemplate.projectile, e.PlayerEntity.RgId,
+				e.PlayerEntity.Position, e.PlayerEntity.Angle, e.PlayerEntity.Pitch)
 		}
 	}
 	// One click will generate two fireWeapon message.

@@ -82,7 +82,6 @@ func NewBlueExplosionEffect() *EffectTemplate {
 }
 
 func (ef *Effect) eventHandleUpdateTick(sender RcTx, e EventUpdateTick) {
-	log.Printf("ALC %v", e.RgState.AnimationLoopCnt)
 	if e.RgState.AnimationLoopCnt >= ef.LoopCount {
 		m := ReactorEventMessage{ef.tx, EventUnregisterRegoter{RgId: ef.rgData.Entity.RgId}}
 		sender <- m

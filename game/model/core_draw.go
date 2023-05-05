@@ -143,10 +143,11 @@ func (g *Core) drawCrosshairs(screen *ebiten.Image) {
 
 		crosshairScale := r.sprite.Scale()
 		op.GeoM.Scale(crosshairScale, crosshairScale)
-		op.GeoM.Translate(
-			float64(g.cfg.ScreenWidth)/2-float64(r.sprite.W)*crosshairScale/2,
-			float64(g.cfg.ScreenHeight)/2-float64(r.sprite.H)*crosshairScale/2,
-		)
+		x := float64(g.cfg.ScreenWidth)/2 - float64(r.sprite.W)*crosshairScale/2
+		y := float64(g.cfg.ScreenHeight)/2 - float64(r.sprite.H)*crosshairScale/2
+		// Make crosshair a little lower than center.
+		y -= 0.3
+		op.GeoM.Translate(x, y)
 		screen.DrawImage(r.sprite.Texture(), op)
 		// if g.crosshairs.IsHitIndicatorActive() {
 		// 	screen.DrawImage(g.crosshairs.HitIndicator.Texture(), op)

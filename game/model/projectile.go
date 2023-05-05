@@ -44,7 +44,6 @@ func (c *Projectile) eventHandleUpdateTick(sender RcTx, e EventUpdateTick) {
 	c.lifespan -= 1
 
 	if e.RgState.HasCollision || c.lifespan < 0 {
-		log.Printf("C %v, L %v, Z %v", e.RgState.HasCollision, c.lifespan, e.RgEntity.Position.Z)
 		m := ReactorEventMessage{c.tx, EventUnregisterRegoter{RgId: c.rgData.Entity.RgId}}
 		sender <- m
 		c.effect.Spawn(sender, e.RgEntity.Position)
@@ -60,24 +59,27 @@ func (c *Projectile) eventHandleUpdateTick(sender RcTx, e EventUpdateTick) {
 func (c *Projectile) eventHandleUpdateData(sender RcTx, e EventUpdateData) {
 }
 
-func (p *ProjectileTemplate) Spawn(coreTx RcTx, aim Entity) RcTx {
-	return NewProjectile(coreTx, p, aim)
+func (p *ProjectileTemplate) Spawn(coreTx RcTx, pt *ProjectileTemplate,
+	parentId ID, position Position, aimAngle float64, aimPitch float64) RcTx {
+	// Because weapon's location is higher than player feet.
+	position.Z = 0.3
+	return NewProjectile(coreTx, pt, parentId, position, aimAngle, aimPitch)
 }
 
 func (c *Projectile) eventHandleCfgChanged(sender RcTx, e EventCfgChanged) {
 }
 
-func NewProjectile(coreTx RcTx, pt *ProjectileTemplate, aim Entity) RcTx {
+func NewProjectile(coreTx RcTx, pt *ProjectileTemplate, parentId ID, position Position, aimAngle float64, aimPitch float64) RcTx {
 	p := &Projectile{
 		Reactor:            NewReactor(),
 		ProjectileTemplate: *pt,
 	}
 	// Don't use ID of Template
 	p.rgData.Entity.RgId = RgIdGenerator.GenId()
-	p.rgData.Entity.ParentId = aim.RgId
-	p.rgData.Entity.Position = aim.Position
-	p.rgData.Entity.Angle = aim.Angle
-	p.rgData.Entity.Pitch = aim.Pitch
+	p.rgData.Entity.ParentId = parentId
+	p.rgData.Entity.Position = position
+	p.rgData.Entity.Angle = aimAngle
+	p.rgData.Entity.Pitch = aimPitch
 	go p.Reactor.Run(p)
 	m := ReactorEventMessage{p.tx, EventRegisterRegoter{p.tx, p.rgData}}
 	coreTx <- m
