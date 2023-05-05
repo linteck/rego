@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"image/color"
 	"lintech/rego/game/loader"
 	"log"
@@ -14,12 +15,15 @@ const (
 	MaximumVelocity = 1e-1
 )
 
+const blessedCounterReset = 120
+
 type Player struct {
 	Reactor
 	rgData RegoterData
 	cfg    GameCfg
 
 	health         int
+	blessedCounter int
 	mouse          MousePosition
 	CameraZ        float64
 	Moved          bool
@@ -52,11 +56,14 @@ func (r *Player) ProcessMessage(m ReactorEventMessage) error {
 }
 
 func (r *Player) eventHandleDamage(sender RcTx, e EventDamage) {
-	r.health -= e.damage
-	if r.health < 0 {
-		//Game End
-		// m := ReactorEventMessage{r.tx, EventUnregisterRegoter{RgId: r.rgData.Entity.RgId}}
-		// sender <- m
+	if r.blessedCounter <= 0 {
+		r.health -= e.damage
+		r.blessedCounter = blessedCounterReset
+		if r.health < 0 {
+			//Game End
+			// m := ReactorEventMessage{r.tx, EventUnregisterRegoter{RgId: r.rgData.Entity.RgId}}
+			// sender <- m
+		}
 	}
 }
 
@@ -197,6 +204,9 @@ func isMoving(m Movement) bool {
 }
 
 func (p *Player) eventHandleUpdateTick(sender RcTx, e IReactorEvent) {
+	if p.blessedCounter > 0 {
+		p.blessedCounter -= 1
+	}
 	movement, action := handlePlayerInput(p.cfg, &p.mouse)
 
 	movement.Velocity = p.rgData.Entity.Velocity
@@ -217,6 +227,9 @@ func (p *Player) eventHandleUpdateTick(sender RcTx, e IReactorEvent) {
 		// (Because my finger is too slow.)
 		p.fireWeapon()
 	}
+
+	hm := ReactorEventMessage{p.tx, EventDebugPrint{DebugString: fmt.Sprintf("Health: %v", p.health)}}
+	sender <- hm
 	// if info, ok := p.drawWeapon(screenSize); ok {
 	// 	cu <- info
 	// }

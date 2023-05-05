@@ -111,9 +111,9 @@ func CreateGame() *Game {
 	NewCrosshairs(coreTx)
 	NewPlayer(coreTx)
 	for i := 0; i < 1; i++ {
-		// NewSorcerer(coreTx)
-		// NewWalker(coreTx)
-		// NewBat(coreTx)
+		NewSorcerer(coreTx)
+		NewWalker(coreTx)
+		NewBat(coreTx)
 		NewRock(coreTx)
 	}
 
@@ -189,9 +189,9 @@ func initConfig() GameCfg {
 	cfg.RenderDistance = viper.GetFloat64("screen.renderDistance")
 	cfg.RenderFloorTex = viper.GetBool("screen.renderFloor")
 	cfg.ShowSpriteBoxes = viper.GetBool("showSpriteBoxes")
-	cfg.ShowSpriteBoxes = true
+	// cfg.ShowSpriteBoxes = true
 	cfg.Debug = viper.GetBool("debug")
-	cfg.Debug = true
+	//cfg.Debug = true
 	if cfg.OsType == OsTypeBrowser {
 		// web browser cannot start with cursor captured
 	} else {
