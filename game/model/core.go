@@ -114,9 +114,9 @@ func (g *Core) eventHandleGameEventTick(sender RcTx, e EventGameTick) {
 					v.sprite.ResetAnimation()
 				} else {
 					v.sprite.Update(g.camera.GetPosition())
-					if v.di.AnimationRate > 0 && v.sprite != nil {
-						v.state.AnimationLoopCnt = v.sprite.LoopCounter()
-					}
+				}
+				if v.di.AnimationRate > 0 && v.sprite != nil {
+					v.state.AnimationLoopCnt = v.sprite.LoopCounter()
 				}
 			}
 		})
