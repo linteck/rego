@@ -22,15 +22,14 @@ type Player struct {
 	rgData RegoterData
 	cfg    GameCfg
 
-	health         int
-	blessedCounter int
+	health         ICooldownInt
 	mouse          MousePosition
 	CameraZ        float64
 	Moved          bool
 	weapon         RcTx
 	weaponTemplate *WeaponTemplate
 	weaponSet      []*WeaponTemplate
-
+	nextWeaponFlag ICooldownFlag
 	// Movement in this tick
 }
 
@@ -56,14 +55,11 @@ func (r *Player) ProcessMessage(m ReactorEventMessage) error {
 }
 
 func (r *Player) eventHandleDamage(sender RcTx, e EventDamage) {
-	if r.blessedCounter <= 0 {
-		r.health -= e.damage
-		r.blessedCounter = blessedCounterReset
-		if r.health < 0 {
-			//Game End
-			// m := ReactorEventMessage{r.tx, EventUnregisterRegoter{RgId: r.rgData.Entity.RgId}}
-			// sender <- m
-		}
+	health := r.health.add(-e.damage)
+	if health < 0 {
+		//Game End
+		// m := ReactorEventMessage{r.tx, EventUnregisterRegoter{RgId: r.rgData.Entity.RgId}}
+		// sender <- m
 	}
 }
 
@@ -99,10 +95,11 @@ func NewPlayer(coreTx RcTx) RcTx {
 		rgData: RegoterData{
 			Entity: entity,
 		},
-		health:    fullHealth,
-		CameraZ:   0.5,
-		Moved:     false,
-		weaponSet: NewWeapons(coreTx),
+		health:         &cooldownInt{counterInit: 60, value: 100},
+		CameraZ:        0.5,
+		Moved:          false,
+		weaponSet:      NewWeapons(coreTx),
+		nextWeaponFlag: &cooldownFlag{counterInit: 60},
 	}
 	// t.rgData.DrawInfo = t.Weapon.di
 	// if t.rgData.DrawInfo.Img == nil {
@@ -151,12 +148,11 @@ func (p *Player) HolsterWeapon(coreTx RcTx) {
 func (p *Player) fireWeapon() {
 	m := ReactorEventMessage{p.tx, EventFireWeapon{}}
 	p.weapon <- m
-
 }
 
 func (p *Player) nextWeapon(coreTx RcTx) {
-	if p.blessedCounter <= 0 {
-		p.blessedCounter = blessedCounterReset
+	p.nextWeaponFlag.set()
+	if p.nextWeaponFlag.get() {
 		for i, w := range p.weaponSet {
 			if w == p.weaponTemplate {
 				ni := (i + 1) % len(p.weaponSet)
@@ -201,9 +197,8 @@ func isMoving(m Movement) bool {
 }
 
 func (p *Player) eventHandleUpdateTick(sender RcTx, e IReactorEvent) {
-	if p.blessedCounter > 0 {
-		p.blessedCounter -= 1
-	}
+	p.nextWeaponFlag.cooldown()
+	p.health.cooldown()
 	movement, action := handlePlayerInput(p.cfg, &p.mouse)
 
 	movement.Velocity = p.rgData.Entity.Velocity

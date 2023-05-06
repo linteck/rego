@@ -10,18 +10,17 @@ import (
 )
 
 type WeaponTemplate struct {
-	rgData       RegoterData
-	projectile   *ProjectileTemplate
-	cooldownInit int
-	cooldown     int
-	rateOfFire   float64
+	rgData     RegoterData
+	projectile *ProjectileTemplate
+	rateOfFire float64
 }
 
 type Weapon struct {
 	Reactor
 	WeaponTemplate
 	firing     bool
-	fireWeapon bool
+	fireWeapon ICooldownFlag
+	// fireWeapon bool
 }
 
 var (
@@ -57,27 +56,31 @@ func (r *Weapon) eventHandleUpdateData(sender RcTx, e EventUpdateData) {
 }
 
 func (w *Weapon) eventHandleUpdateTick(sender RcTx, e EventUpdateTick) error {
-	if w.cooldown > 0 {
-		w.cooldown -= 1
-	}
-	if w.fireWeapon {
-		if w.cooldown <= 0 {
-			w.cooldown = w.cooldownInit
-
-			w.projectile.Spawn(sender, w.WeaponTemplate.projectile, e.PlayerEntity.RgId,
-				e.PlayerEntity.Position, e.PlayerEntity.Angle, e.PlayerEntity.Pitch)
+	w.fireWeapon.cooldown()
+	if w.fireWeapon.get() {
+		w.projectile.Spawn(sender, w.WeaponTemplate.projectile, e.PlayerEntity.RgId,
+			e.PlayerEntity.Position, e.PlayerEntity.Angle, e.PlayerEntity.Pitch)
+		if !e.RgState.AnimationRunning {
+			startAnimation := ReactorEventMessage{w.tx, EventMovement{
+				RgId:    w.rgData.Entity.RgId,
+				Command: Command{StartAnimation: true}}}
+			sender <- startAnimation
+		}
+	} else {
+		if e.RgState.AnimationRunning && e.RgState.AnimationLoopCnt >= 1 {
+			stopAnimation := ReactorEventMessage{w.tx, EventMovement{
+				RgId:    w.rgData.Entity.RgId,
+				Command: Command{StopAnimation: true}}}
+			sender <- stopAnimation
 		}
 	}
-	// One click will generate two fireWeapon message.
-	// So we need clean up another fireWeapon satus in cooldown period.
-	w.fireWeapon = false
 	return nil
 }
 
 func (r *Weapon) eventHandleCfgChanged(sender RcTx, e EventCfgChanged) {
 }
-func (r *Weapon) eventHandleFireWeapon(sender RcTx, e EventFireWeapon) error {
-	r.fireWeapon = true
+func (w *Weapon) eventHandleFireWeapon(sender RcTx, e EventFireWeapon) error {
+	w.fireWeapon.set()
 	return nil
 }
 
@@ -139,24 +142,24 @@ func NewWeaponTemplate(coreTx RcTx, di DrawInfo, scale float64,
 		CollisionHeight: 0,
 	}
 
-	cooldownInit := int(float64(ebiten.TPS())/float64(rateOfFire)) + 1
 	w := WeaponTemplate{
 		rgData: RegoterData{
 			Entity:   entity,
 			DrawInfo: di,
 		},
-		cooldown:     0,
-		cooldownInit: cooldownInit,
-		projectile:   projectile,
+		projectile: projectile,
+		rateOfFire: rateOfFire,
 	}
 
 	return &w
 }
 
 func NewWeapon(coreTx RcTx, tp *WeaponTemplate) RcTx {
+	cooldownInit := int(float64(ebiten.TPS())/float64(tp.rateOfFire)) + 1
 	w := &Weapon{
 		Reactor:        NewReactor(),
 		WeaponTemplate: *tp,
+		fireWeapon:     &cooldownFlag{counterInit: cooldownInit},
 	}
 	// Don't use ID of Template
 	w.rgData.Entity.RgId = <-IdGen

@@ -51,6 +51,9 @@ func (r *Enemy) eventHandleDamage(sender RcTx, e EventDamage) {
 }
 
 func (c *Enemy) eventHandleCollision(sender RcTx, e EventCollision) {
+	if e.collistion.peer == NULL_ID {
+		log.Fatalf("Info: Try to find NULL_ID(%v) in core", NULL_ID)
+	}
 	if e.collistion.peer != WALL_ID {
 		m := ReactorEventMessage{c.tx, EventDamage{peer: e.collistion.peer, damage: c.harm}}
 		sender <- m

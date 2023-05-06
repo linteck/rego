@@ -74,6 +74,11 @@ type Movement struct {
 	VissionRotate float64
 }
 
+type Command struct {
+	StartAnimation bool
+	StopAnimation  bool
+}
+
 type Action struct {
 	FireWeapon bool
 	nextWeapon bool
@@ -139,6 +144,7 @@ type GameCfg struct {
 
 type RegoterState struct {
 	AnimationLoopCnt int
+	AnimationRunning bool
 }
 
 type DrawInfo struct {
@@ -223,8 +229,9 @@ type EventUnregisterRegoter struct {
 }
 
 type EventMovement struct {
-	RgId ID
-	Move Movement
+	RgId    ID
+	Move    Movement
+	Command Command
 }
 
 // type EventInput struct {

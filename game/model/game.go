@@ -111,10 +111,10 @@ func CreateGame() *Game {
 	NewCrosshairs(coreTx)
 	NewPlayer(coreTx)
 	for i := 0; i < 10; i++ {
-		NewSorcerer(coreTx)
-		NewWalker(coreTx)
-		NewBat(coreTx)
-		NewRock(coreTx)
+		// NewSorcerer(coreTx)
+		// NewWalker(coreTx)
+		// NewBat(coreTx)
+		// NewRock(coreTx)
 	}
 
 	// Todo

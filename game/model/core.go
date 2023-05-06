@@ -110,9 +110,13 @@ func (g *Core) eventHandleGameEventTick(sender RcTx, e EventGameTick) {
 	for _, l := range g.rgs {
 		l.ForEach(func(k ID, v *regoterInCore) {
 			if v.sprite != nil {
-				v.sprite.Update(g.camera.GetPosition())
-				if v.di.AnimationRate > 0 && v.sprite != nil {
-					v.state.AnimationLoopCnt = v.sprite.LoopCounter()
+				if !v.state.AnimationRunning {
+					v.sprite.ResetAnimation()
+				} else {
+					v.sprite.Update(g.camera.GetPosition())
+					if v.di.AnimationRate > 0 && v.sprite != nil {
+						v.state.AnimationLoopCnt = v.sprite.LoopCounter()
+					}
 				}
 			}
 		})
@@ -171,6 +175,7 @@ func (g *Core) eventHandleRegisterRegoter(sender RcTx, e EventRegisterRegoter) {
 	if rg.di.Img == nil && d.Entity.RgType != RegoterEnumPlayer {
 		log.Fatal("Invalid nil Img for ", d.Entity.RgType, d.Entity.RgId)
 	}
+	rg.state.AnimationRunning = true
 	rg.sprite = createCoreSprite(rg)
 	g.rgs[rg.rgType].Insert(d.Entity.RgId, rg)
 }
@@ -181,10 +186,17 @@ func (g *Core) eventHandleRegisterRegoter(sender RcTx, e EventRegisterRegoter) {
 // }
 
 func (g *Core) findRegoter(id ID) (*regoterInCore, bool) {
-	for _, l := range g.rgs {
-		r := l.Find(id)
-		if r != nil {
-			return *r, true
+	if id == NULL_ID {
+		log.Fatalf("ID can not be NULL_ID(%v).", NULL_ID)
+	}
+	if id == WALL_ID {
+		log.Printf("Info: Try to find WALL_ID(%v) in core", WALL_ID)
+	} else {
+		for _, l := range g.rgs {
+			r := l.Find(id)
+			if r != nil {
+				return *r, true
+			}
 		}
 	}
 	return nil, false
@@ -196,17 +208,30 @@ func (g *Core) eventHandleMovement(sender RcTx, e EventMovement) {
 		if moved && (p.rgType == RegoterEnumPlayer) {
 			g.updatePlayerCamera(&p.entity, moved, false)
 		}
+		if e.Command.StopAnimation {
+			p.state.AnimationRunning = false
+		}
+		if e.Command.StartAnimation {
+			p.state.AnimationRunning = true
+		}
 		e := EventUpdateData{RgEntity: p.entity, RgState: p.state}
 		m := ReactorEventMessage{g.tx, e}
 		p.tx <- m
+	} else {
+		log.Printf("Warning: Can not find Regoter(%v) in Event(%T).", e.RgId, e)
 	}
 }
 
 func (g *Core) eventHandleDamage(sender RcTx, e EventDamage) {
+	if e.peer == NULL_ID {
+		log.Fatalf("ID can not be NULL_ID(%v).", NULL_ID)
+	}
 	if e.peer != WALL_ID {
 		if p, ok := g.findRegoter(e.peer); ok {
 			m := ReactorEventMessage{g.tx, EventDamage{peer: 0, damage: e.damage}}
 			p.tx <- m
+		} else {
+			log.Printf("Warning: Can not find Regoter(%v) in Event(%T).", e.peer, e)
 		}
 	}
 }
@@ -248,6 +273,8 @@ func (g *Core) updatedMove(p *regoterInCore, sender RcTx, e EventMovement) bool 
 					position: collisionEntity.position}
 				rg.tx <- ReactorEventMessage{
 					g.tx, EventCollision{collistion: collisionForPeer}}
+			} else {
+				log.Printf("Warning: Can not find Peer Regoter(%v) in Event(%T).", peerId, e)
 			}
 		} else {
 			if lineEnd.Z < -1 {
