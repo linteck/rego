@@ -106,7 +106,7 @@ func (g *Core) drawSpriteBoxes(scene *ebiten.Image) {
 func (g *Core) drawWeapon(scene *ebiten.Image) {
 	sl := g.rgs[RegoterEnumWeapon]
 	sl.ForEach(func(i ID, val *regoterInCore) {
-		if val.sprite != nil && val.state.AnimationRunning {
+		if val.sprite != nil {
 			op := &ebiten.DrawImageOptions{}
 			op.Filter = ebiten.FilterNearest
 			weaponScale := val.sprite.Scale() * g.cfg.RenderScale
