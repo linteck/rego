@@ -34,7 +34,7 @@ func (r *Crosshairs) eventHandleUnknown(sender RcTx, e IReactorEvent) error {
 func NewCrosshairs(coreTx RcTx) RcTx {
 	//loadCrosshairsResource()
 	entity := Entity{
-		RgId:            RgIdGenerator.GenId(),
+		RgId:            <-IdGen,
 		RgType:          RegoterEnumCrosshair,
 		Position:        Position{X: 5, Y: 5, Z: 0},
 		Scale:           2,

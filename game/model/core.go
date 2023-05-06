@@ -53,6 +53,8 @@ func (g *Core) ProcessMessage(m ReactorEventMessage) error {
 	case EventDebugPrint:
 		g.eventHandleEventDebugPrint(m.sender, m.event.(EventDebugPrint))
 
+	case EventHolsterWeapon:
+		g.eventHandleHolsterWeapon(m.sender, m.event.(EventHolsterWeapon))
 	case EventGameTick:
 		g.eventHandleGameEventTick(m.sender, m.event.(EventGameTick))
 
@@ -88,6 +90,11 @@ func (g *Core) getPlayer() *regoterInCore {
 		player = pl.Iterate().Value()
 	}
 	return player
+}
+
+func (g *Core) eventHandleHolsterWeapon(sender RcTx, e EventHolsterWeapon) {
+	pl := g.rgs[RegoterEnumWeapon]
+	pl.Clear()
 }
 
 func (g *Core) eventHandleGameEventTick(sender RcTx, e EventGameTick) {

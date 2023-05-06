@@ -110,7 +110,7 @@ func CreateGame() *Game {
 	// create crosshairs and weapon
 	NewCrosshairs(coreTx)
 	NewPlayer(coreTx)
-	for i := 0; i < 1; i++ {
+	for i := 0; i < 10; i++ {
 		NewSorcerer(coreTx)
 		NewWalker(coreTx)
 		NewBat(coreTx)

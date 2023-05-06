@@ -81,7 +81,7 @@ func (r *Player) eventHandleUnknown(sender RcTx, e IReactorEvent) error {
 
 func NewPlayer(coreTx RcTx) RcTx {
 	entity := Entity{
-		RgId:            RgIdGenerator.GenId(),
+		RgId:            <-IdGen,
 		RgType:          RegoterEnumPlayer,
 		Position:        Position{X: 8.5, Y: 3.5, Z: 0},
 		Scale:           1,
@@ -126,26 +126,26 @@ func (p *Player) AddWeapon(w *WeaponTemplate) {
 	p.weaponSet = append(p.weaponSet, w)
 }
 
-func (p *Player) SelectWeapon(coreTx RcTx, index int) RcTx {
+func (p *Player) SelectWeapon(coreTx RcTx, index int) {
 	// TODO: add some kind of sheath/unsheath animation
 	if index < 0 || index > len(p.weaponSet) {
 		log.Fatalf("weaponIndex %v is out of range (0, %v)", index, len(p.weaponSet))
 	}
 	newTemplate := p.weaponSet[index]
 	if newTemplate == nil || newTemplate == p.weaponTemplate {
-		return p.weapon
+		return
 	} else {
 		if p.weapon != nil {
-			p.HolsterWeapon()
+			p.HolsterWeapon(coreTx)
 		}
 		p.weaponTemplate = newTemplate
 		p.weapon = p.weaponTemplate.Spawn(coreTx)
-		return p.weapon
+		return
 	}
 }
-func (p *Player) HolsterWeapon() {
+func (p *Player) HolsterWeapon(coreTx RcTx) {
 	m := ReactorEventMessage{p.tx, EventHolsterWeapon{}}
-	p.weapon <- m
+	coreTx <- m
 }
 
 func (p *Player) fireWeapon() {
@@ -154,23 +154,20 @@ func (p *Player) fireWeapon() {
 
 }
 
-// func (p *Player) NextWeapon(reverse bool) *Weapon {
-// 	_, weaponIndex := p.getSelectedWeapon()
-// 	if weaponIndex < 0 {
-// 		// check last weapon in event of unsheathing previously sheathed weapon
-// 		weaponIndex = p.getWeaponIndex(p.LastWeapon)
-// 		if weaponIndex < 0 {
-// 			weaponIndex = 0
-// 		}
-// 		return p.SelectWeapon(weaponIndex)
-// 	}
-
-// 	weaponIndex++
-// 	if weaponIndex >= len(p.weaponSet) {
-// 		weaponIndex = 0
-// 	}
-// 	return p.SelectWeapon(weaponIndex)
-// }
+func (p *Player) nextWeapon(coreTx RcTx) {
+	if p.blessedCounter <= 0 {
+		p.blessedCounter = blessedCounterReset
+		for i, w := range p.weaponSet {
+			if w == p.weaponTemplate {
+				ni := (i + 1) % len(p.weaponSet)
+				if ni != i {
+					p.SelectWeapon(coreTx, ni)
+					break
+				}
+			}
+		}
+	}
+}
 
 // func (p *Player) getWeaponIndex(w *Weapon) int {
 // 	if w == nil {
@@ -212,6 +209,10 @@ func (p *Player) eventHandleUpdateTick(sender RcTx, e IReactorEvent) {
 	movement.Velocity = p.rgData.Entity.Velocity
 	if !action.KeyPressed {
 		movement.MoveRotate = p.rgData.Entity.LastMoveRotate
+	}
+
+	if action.nextWeapon {
+		p.nextWeapon(sender)
 	}
 
 	if isMoving(movement) {
@@ -302,7 +303,7 @@ func (p *Player) Prone() {
 // func (p *Player) fireWeapon() {
 // 	w := p.Weapon
 // 	if w == nil {
-// 		p.NextWeapon(false)
+// 		p.nextWeapon(false)
 // 		return
 // 	}
 // 	if w.OnCooldown() {

@@ -65,7 +65,7 @@ func NewEnemy(coreTx RcTx,
 ) RcTx {
 	//loadEnemyResource()
 	entity := Entity{
-		RgId:            RgIdGenerator.GenId(),
+		RgId:            <-IdGen,
 		RgType:          RegoterEnumSprite,
 		Position:        po,
 		Scale:           scale,

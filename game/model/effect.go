@@ -39,7 +39,7 @@ func (r *Effect) eventHandleUnknown(sender RcTx, e IReactorEvent) error {
 func NewEffectTemplate(di DrawInfo, scale float64, loopCount int) *EffectTemplate {
 	//loadCrosshairsResource()
 	entity := Entity{
-		RgId:            RgIdGenerator.GenId(),
+		RgId:            <-IdGen,
 		RgType:          RegoterEnumSprite,
 		Scale:           scale,
 		Velocity:        0,
@@ -98,7 +98,7 @@ func NewEffect(coreTx RcTx, et *EffectTemplate, position Position) RcTx {
 		EffectTemplate: *et,
 	}
 	// Don't use ID of Template
-	ef.rgData.Entity.RgId = RgIdGenerator.GenId()
+	ef.rgData.Entity.RgId = <-IdGen
 	ef.rgData.Entity.Position = position
 	//
 	go ef.Reactor.Run(ef)

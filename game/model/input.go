@@ -133,10 +133,10 @@ func handlePlayerInput(cfg GameCfg, lastPosition *MousePosition) (Movement, Acti
 		}
 	}
 
-	// _, wheelY := ebiten.Wheel()
-	// if wheelY != 0 {
-	// 	p.NextWeapon(wheelY > 0)
-	// }
+	_, wheelY := ebiten.Wheel()
+	if wheelY != 0 {
+		action.nextWeapon = true
+	}
 	// if ebiten.IsKeyPressed(ebiten.KeyDigit1) {
 	// 	p.SelectWeapon(0)
 	// }

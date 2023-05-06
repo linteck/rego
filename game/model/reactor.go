@@ -76,6 +76,7 @@ type Movement struct {
 
 type Action struct {
 	FireWeapon bool
+	nextWeapon bool
 	KeyPressed bool
 }
 

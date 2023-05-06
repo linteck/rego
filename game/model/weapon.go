@@ -74,10 +74,8 @@ func (w *Weapon) eventHandleUpdateTick(sender RcTx, e EventUpdateTick) error {
 	return nil
 }
 
-func (r *Weapon) eventHandleCfgChanged(sender RcTx, e EventCfgChanged) error {
-	return nil
+func (r *Weapon) eventHandleCfgChanged(sender RcTx, e EventCfgChanged) {
 }
-
 func (r *Weapon) eventHandleFireWeapon(sender RcTx, e EventFireWeapon) error {
 	r.fireWeapon = true
 	return nil
@@ -131,7 +129,7 @@ func NewWeaponTemplate(coreTx RcTx, di DrawInfo, scale float64,
 	projectile *ProjectileTemplate, rateOfFire float64,
 ) *WeaponTemplate {
 	entity := Entity{
-		RgId:            RgIdGenerator.GenId(),
+		RgId:            <-IdGen,
 		RgType:          RegoterEnumWeapon,
 		Scale:           scale,
 		Position:        Position{X: 1, Y: 1, Z: 0},
@@ -161,7 +159,7 @@ func NewWeapon(coreTx RcTx, tp *WeaponTemplate) RcTx {
 		WeaponTemplate: *tp,
 	}
 	// Don't use ID of Template
-	w.rgData.Entity.RgId = RgIdGenerator.GenId()
+	w.rgData.Entity.RgId = <-IdGen
 	go w.Reactor.Run(w)
 	m := ReactorEventMessage{w.tx, EventRegisterRegoter{w.tx, w.rgData}}
 	coreTx <- m

@@ -96,7 +96,7 @@ func NewProjectile(coreTx RcTx, pt *ProjectileTemplate, parentId ID, position Po
 		ProjectileTemplate: *pt,
 	}
 	// Don't use ID of Template
-	p.rgData.Entity.RgId = RgIdGenerator.GenId()
+	p.rgData.Entity.RgId = <-IdGen
 	p.rgData.Entity.ParentId = parentId
 	p.rgData.Entity.Position = position
 	p.rgData.Entity.Angle = aimAngle
@@ -113,7 +113,7 @@ func NewProjectileTemplate(di DrawInfo,
 ) *ProjectileTemplate {
 	//loadCrosshairsResource()
 	entity := Entity{
-		RgId:            RgIdGenerator.GenId(),
+		RgId:            <-IdGen,
 		RgType:          RegoterEnumProjectile,
 		Scale:           scale,
 		Velocity:        velocity,
