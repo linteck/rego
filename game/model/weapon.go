@@ -6,13 +6,15 @@ import (
 	"log"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/audio"
 	"github.com/harbdog/raycaster-go"
 )
 
 type WeaponTemplate struct {
-	rgData     RegoterData
-	projectile *ProjectileTemplate
-	rateOfFire float64
+	rgData      RegoterData
+	projectile  *ProjectileTemplate
+	rateOfFire  float64
+	audioPlayer *audio.Player
 }
 
 type Weapon struct {
@@ -60,6 +62,11 @@ func (w *Weapon) eventHandleUpdateTick(sender RcTx, e EventUpdateTick) error {
 	if w.fireWeapon.get() {
 		w.projectile.Spawn(sender, w.WeaponTemplate.projectile, e.PlayerEntity.RgId,
 			e.PlayerEntity.Position, e.PlayerEntity.Angle, e.PlayerEntity.Pitch)
+		if err := w.audioPlayer.Rewind(); err != nil {
+			log.Printf("Warning: Audioplayer Rewind fail!")
+		} else {
+			w.audioPlayer.Play()
+		}
 		if !e.RgState.AnimationRunning {
 			startAnimation := ReactorEventMessage{w.tx, EventMovement{
 				RgId:    w.rgData.Entity.RgId,
@@ -101,7 +108,8 @@ func NewWeaponChargedBolt(coreTx RcTx) *WeaponTemplate {
 		Rows:          1,
 		AnimationRate: 7,
 	}
-	t := NewWeaponTemplate(coreTx, di, scale, projectile, RoF)
+	audioPlayer := loader.LoadAudioWav("blaster.mp3")
+	t := NewWeaponTemplate(coreTx, di, scale, projectile, RoF, audioPlayer)
 	return t
 }
 
@@ -117,7 +125,8 @@ func NewWeaponRedBolt(coreTx RcTx) *WeaponTemplate {
 		Rows:          1,
 		AnimationRate: 7,
 	}
-	t := NewWeaponTemplate(coreTx, di, scale, projectile, RoF)
+	audioPlayer := loader.LoadAudioWav("jab.wav")
+	t := NewWeaponTemplate(coreTx, di, scale, projectile, RoF, audioPlayer)
 	return t
 }
 
@@ -129,7 +138,7 @@ func NewWeapons(coreTx RcTx) []*WeaponTemplate {
 }
 
 func NewWeaponTemplate(coreTx RcTx, di DrawInfo, scale float64,
-	projectile *ProjectileTemplate, rateOfFire float64,
+	projectile *ProjectileTemplate, rateOfFire float64, audioPlayer *audio.Player,
 ) *WeaponTemplate {
 	entity := Entity{
 		RgId:            <-IdGen,
@@ -147,8 +156,9 @@ func NewWeaponTemplate(coreTx RcTx, di DrawInfo, scale float64,
 			Entity:   entity,
 			DrawInfo: di,
 		},
-		projectile: projectile,
-		rateOfFire: rateOfFire,
+		projectile:  projectile,
+		rateOfFire:  rateOfFire,
+		audioPlayer: audioPlayer,
 	}
 
 	return &w

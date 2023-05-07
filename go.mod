@@ -2,12 +2,12 @@ module lintech/rego
 
 go 1.20
 
-require (
-	github.com/chen3feng/stl4go v0.1.1
-)
+require github.com/chen3feng/stl4go v0.1.1
 
 require (
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
+	github.com/hajimehoshi/go-mp3 v0.3.4 // indirect
+	github.com/hajimehoshi/oto/v2 v2.4.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
@@ -28,7 +28,7 @@ require (
 	github.com/ebitenui/ebitenui v0.5.1
 	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20221017161538-93cebf72946b // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
-	github.com/hajimehoshi/ebiten/v2 v2.5.3
+	github.com/hajimehoshi/ebiten/v2 v2.5.4
 	github.com/harbdog/raycaster-go v1.9.0
 	github.com/jezek/xgb v1.1.0 // indirect
 	github.com/spf13/viper v1.15.0

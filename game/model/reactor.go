@@ -143,8 +143,9 @@ type GameCfg struct {
 // type RgTxMsgbox chan<- IRegoterEvent
 
 type RegoterState struct {
-	AnimationLoopCnt int
-	AnimationRunning bool
+	AnimationLoopCnt      int
+	IsAnimationFirstFrame bool
+	AnimationRunning      bool
 }
 
 type DrawInfo struct {

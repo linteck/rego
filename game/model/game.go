@@ -28,9 +28,33 @@ type Game struct {
 	coreTx RcTx
 }
 
+func createSpritesFunc() func(coreTx RcTx) {
+	const max_gen_sprites = 1
+	var gened_sprites = 0
+
+	return func(coreTx RcTx) {
+		if gened_sprites < max_gen_sprites {
+			r := rand.Intn(10)
+			if r == 1 {
+				NewSorcerer(coreTx)
+				// NewWalker(coreTx)
+				// NewBat(coreTx)
+				// NewRock(coreTx)
+				gened_sprites++
+			}
+		}
+	}
+}
+
+var createSprites = createSpritesFunc()
+
 // Update - Allows the game to run logic such as updating the world, gathering input, and playing audio.
 // Update is called every tick (1/60 [s] by default).
 func (g *Game) Update() error {
+	// If we add Same Sprites in CreateGame(), they will show same frame of Animation at each Tick.
+	// Becasue they have same count of Update Ticks.
+	// So we need create Sprite inside Game.Update in different Ticks.
+	createSprites(g.coreTx)
 	g.handleInput()
 	if !g.paused {
 		m := ReactorEventMessage{g.tx, EventGameTick{}}
@@ -111,10 +135,10 @@ func CreateGame() *Game {
 	NewCrosshairs(coreTx)
 	NewPlayer(coreTx)
 	for i := 0; i < 10; i++ {
-		NewSorcerer(coreTx)
-		NewWalker(coreTx)
-		NewBat(coreTx)
-		NewRock(coreTx)
+		// NewSorcerer(coreTx)
+		// NewWalker(coreTx)
+		// NewBat(coreTx)
+		// NewRock(coreTx)
 	}
 
 	// Todo

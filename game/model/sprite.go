@@ -15,21 +15,22 @@ import (
 )
 
 type Sprite struct {
-	Entity         *Entity
-	W, H           int
-	AnimationRate  int
-	Focusable      bool
-	illumination   float64
-	animReversed   bool
-	animCounter    int
-	loopCounter    int
-	columns, rows  int
-	texNum, lenTex int
-	texFacingMap   map[float64]int
-	texFacingKeys  []float64
-	texRects       []image.Rectangle
-	textures       []*ebiten.Image
-	screenRect     *image.Rectangle
+	Entity           *Entity
+	W, H             int
+	AnimationRate    int
+	Focusable        bool
+	illumination     float64
+	animReversed     bool
+	animCounter      int
+	loopCounter      int
+	isLoopFirstFrame bool
+	columns, rows    int
+	texNum, lenTex   int
+	texFacingMap     map[float64]int
+	texFacingKeys    []float64
+	texRects         []image.Rectangle
+	textures         []*ebiten.Image
+	screenRect       *image.Rectangle
 }
 
 func (s *Sprite) Scale() float64 {
@@ -177,6 +178,10 @@ func (s *Sprite) LoopCounter() int {
 	return s.loopCounter
 }
 
+func (s *Sprite) IsLoopFirstFrame() bool {
+	return s.isLoopFirstFrame
+}
+
 func (s *Sprite) ScreenRect() *image.Rectangle {
 	return s.screenRect
 }
@@ -220,12 +225,18 @@ func (s *Sprite) Update(camPos *geom.Vector2) {
 			if s.texNum > maxTexNum || s.texNum < minTexNum {
 				s.texNum = maxTexNum
 				s.loopCounter++
+				s.isLoopFirstFrame = true
+			} else {
+				s.isLoopFirstFrame = false
 			}
 		} else {
 			s.texNum += 1
 			if s.texNum > maxTexNum || s.texNum < minTexNum {
 				s.texNum = minTexNum
 				s.loopCounter++
+				s.isLoopFirstFrame = true
+			} else {
+				s.isLoopFirstFrame = false
 			}
 		}
 	} else {

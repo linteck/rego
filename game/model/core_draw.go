@@ -1,7 +1,6 @@
 package model
 
 import (
-	"fmt"
 	"image/color"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -124,10 +123,10 @@ func (g *Core) drawWeapon(scene *ebiten.Image) {
 
 func (g *Core) drawDebugInfo(screen *ebiten.Image) {
 	// draw FPS/TPS counter debug display
-	dbgMsg := fmt.Sprintf("FPS: %.1f\nTPS: %.1f/%v\n", ebiten.ActualFPS(), ebiten.ActualTPS(), ebiten.TPS())
-	cp := g.camera.GetPosition()
-	dbgMsg += fmt.Sprintf("Camera: {X:%.1f, Y:%.1f, Z: %.1f\n", cp.X, cp.Y, g.camera.GetPositionZ())
-	//ebitenutil.DebugPrint(screen, fps)
+	dbgMsg := ""
+	// dbgMsg += fmt.Sprintf("FPS: %.1f\nTPS: %.1f/%v\n", ebiten.ActualFPS(), ebiten.ActualTPS(), ebiten.TPS())
+	// cp := g.camera.GetPosition()
+	// dbgMsg += fmt.Sprintf("Camera: {X:%.1f, Y:%.1f, Z: %.1f\n", cp.X, cp.Y, g.camera.GetPositionZ())
 	g.debugMessages.ForEach(func(val string) {
 		dbgMsg += (val + "\n")
 	})

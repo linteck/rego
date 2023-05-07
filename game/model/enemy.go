@@ -5,6 +5,7 @@ import (
 	"log"
 	"math/rand"
 
+	"github.com/hajimehoshi/ebiten/v2/audio"
 	"github.com/harbdog/raycaster-go"
 	"github.com/harbdog/raycaster-go/geom"
 )
@@ -17,6 +18,7 @@ type Enemy struct {
 	health           int
 	collistionRotate float64
 	harm             int
+	audioPlayer      *audio.Player
 }
 
 func (r *Enemy) ProcessMessage(m ReactorEventMessage) error {
@@ -64,7 +66,7 @@ func (c *Enemy) eventHandleCollision(sender RcTx, e EventCollision) {
 func NewEnemy(coreTx RcTx,
 	po Position, di DrawInfo, scale float64,
 	cp CollisionSpace, velocity float64, harm int,
-	anchor raycaster.SpriteAnchor,
+	anchor raycaster.SpriteAnchor, audioPlayer *audio.Player,
 ) RcTx {
 	//loadEnemyResource()
 	entity := Entity{
@@ -85,8 +87,9 @@ func NewEnemy(coreTx RcTx,
 			Entity:   entity,
 			DrawInfo: di,
 		},
-		health: fullHealth,
-		harm:   harm,
+		health:      fullHealth,
+		harm:        harm,
+		audioPlayer: audioPlayer,
 	}
 
 	go t.Reactor.Run(t)
@@ -114,9 +117,18 @@ func (c *Enemy) eventHandleUpdateTick(sender RcTx, e EventUpdateTick) {
 		c.collistionRotate = 0
 	}
 	if isMoving(movement) {
-		e := EventMovement{RgId: c.rgData.Entity.RgId, Move: movement}
-		m := ReactorEventMessage{c.tx, e}
+		v := EventMovement{RgId: c.rgData.Entity.RgId, Move: movement}
+		m := ReactorEventMessage{c.tx, v}
 		sender <- m
+		if c.audioPlayer != nil && !c.audioPlayer.IsPlaying() && e.RgState.IsAnimationFirstFrame {
+			if err := c.audioPlayer.Rewind(); err != nil {
+				log.Printf("Warning: Audioplayer Rewind fail!")
+			} else {
+				log.Printf(" Audioplayer start play")
+				c.audioPlayer.SetVolume(0.5)
+				c.audioPlayer.Play()
+			}
+		}
 	}
 }
 
@@ -177,6 +189,7 @@ func NewSorcerer(conrTx RcTx) {
 		sorcVelocity,
 		10,
 		raycaster.AnchorBottom,
+		loader.LoadAudioWav("swinging-whoosh.mp3"),
 	)
 	// log.Printf("%v, %v", collisionRadius, collisionHeight)
 
@@ -230,6 +243,7 @@ func NewWalker(coreTx RcTx) {
 		walkerVelocity,
 		5,
 		raycaster.AnchorBottom,
+		loader.LoadAudioWav("werewolf.wav"),
 	)
 
 	// log.Printf("%v, %v", walkerCollisionRadius, walkerCollisionHeight)
@@ -289,6 +303,7 @@ func NewBat(coreTx RcTx) {
 		batVelocity,
 		3,
 		raycaster.AnchorTop,
+		loader.LoadAudioWav("cat.wav"),
 	)
 
 	// log.Printf("%v, %v", batCollisionRadius, batCollisionHeight)
@@ -325,6 +340,7 @@ func NewRock(coreTx RcTx) {
 		rockVelocity,
 		0,
 		raycaster.AnchorBottom,
+		loader.LoadAudioWav(""),
 	)
 	// log.Printf("%v, %v", collisionRadius, collisionHeight)
 

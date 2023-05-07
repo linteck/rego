@@ -23,8 +23,8 @@ func (g *Core) miniMap() *image.RGBA {
 
 	typesNeedDraw := []RegoterEnum{
 		RegoterEnumSprite,
-		RegoterEnumProjectile,
-		RegoterEnumEffect,
+		//RegoterEnumProjectile,
+		//RegoterEnumEffect,
 	}
 	// draw sprite screen indicators to show we know where it was raycasted (must occur after camera.Update)
 	for _, t := range typesNeedDraw {

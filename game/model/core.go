@@ -117,6 +117,7 @@ func (g *Core) eventHandleGameEventTick(sender RcTx, e EventGameTick) {
 				}
 				if v.di.AnimationRate > 0 && v.sprite != nil {
 					v.state.AnimationLoopCnt = v.sprite.LoopCounter()
+					v.state.IsAnimationFirstFrame = v.sprite.IsLoopFirstFrame()
 				}
 			}
 		})
@@ -268,13 +269,15 @@ func (g *Core) updatedMove(p *regoterInCore, sender RcTx, e EventMovement) bool 
 				g.tx, EventCollision{collistion: *collisionEntity}}
 
 			peerId := collisionEntity.peer
-			if rg, ok := g.findRegoter(peerId); ok {
-				collisionForPeer := EntityCollision{peer: pe.RgId, distance: collisionEntity.distance,
-					position: collisionEntity.position}
-				rg.tx <- ReactorEventMessage{
-					g.tx, EventCollision{collistion: collisionForPeer}}
-			} else {
-				log.Printf("Warning: Can not find Peer Regoter(%v) in Event(%T).", peerId, e)
+			if peerId != WALL_ID {
+				if rg, ok := g.findRegoter(peerId); ok {
+					collisionForPeer := EntityCollision{peer: pe.RgId, distance: collisionEntity.distance,
+						position: collisionEntity.position}
+					rg.tx <- ReactorEventMessage{
+						g.tx, EventCollision{collistion: collisionForPeer}}
+				} else {
+					log.Printf("Warning: Can not find Peer Regoter(%v) in Event(%T).", peerId, e)
+				}
 			}
 		} else {
 			if lineEnd.Z < -1 {
