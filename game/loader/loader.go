@@ -346,12 +346,12 @@ func GetSpriteFromFile(sFile string) *ebiten.Image {
 // }
 
 const (
-	audioSampleRate = 48000
+	audioContextSampleRate = 48000
 )
 
-var audioContext = audio.NewContext(audioSampleRate)
+var audioContext = audio.NewContext(audioContextSampleRate)
 
-func LoadAudioWav(fname string) *audio.Player {
+func LoadAudioPlayer(fname string) *audio.Player {
 	if len(fname) == 0 {
 		return nil
 	}
@@ -380,9 +380,9 @@ func LoadAudioWav(fname string) *audio.Player {
 	var d io.Reader
 	switch ext := path.Ext(fname); ext {
 	case ".wav":
-		d, err = wav.DecodeWithSampleRate(audioSampleRate, f)
+		d, err = wav.DecodeWithSampleRate(audioContextSampleRate, f)
 	case ".mp3":
-		d, err = mp3.DecodeWithSampleRate(audioSampleRate, f)
+		d, err = mp3.DecodeWithSampleRate(audioContextSampleRate, f)
 	default:
 		log.Fatal("Unsupported audo file ext ", ext)
 	}

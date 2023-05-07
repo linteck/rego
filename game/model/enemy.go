@@ -120,15 +120,7 @@ func (c *Enemy) eventHandleUpdateTick(sender RcTx, e EventUpdateTick) {
 		v := EventMovement{RgId: c.rgData.Entity.RgId, Move: movement}
 		m := ReactorEventMessage{c.tx, v}
 		sender <- m
-		if c.audioPlayer != nil && !c.audioPlayer.IsPlaying() && e.RgState.IsAnimationFirstFrame {
-			if err := c.audioPlayer.Rewind(); err != nil {
-				log.Printf("Warning: Audioplayer Rewind fail!")
-			} else {
-				log.Printf(" Audioplayer start play")
-				c.audioPlayer.SetVolume(0.5)
-				c.audioPlayer.Play()
-			}
-		}
+		c.playAudio(e)
 	}
 }
 
@@ -189,7 +181,7 @@ func NewSorcerer(conrTx RcTx) {
 		sorcVelocity,
 		10,
 		raycaster.AnchorBottom,
-		loader.LoadAudioWav("swinging-whoosh.mp3"),
+		loader.LoadAudioPlayer("swinging-whoosh.mp3"),
 	)
 	// log.Printf("%v, %v", collisionRadius, collisionHeight)
 
@@ -243,7 +235,7 @@ func NewWalker(coreTx RcTx) {
 		walkerVelocity,
 		5,
 		raycaster.AnchorBottom,
-		loader.LoadAudioWav("werewolf.wav"),
+		loader.LoadAudioPlayer("werewolf.wav"),
 	)
 
 	// log.Printf("%v, %v", walkerCollisionRadius, walkerCollisionHeight)
@@ -303,7 +295,7 @@ func NewBat(coreTx RcTx) {
 		batVelocity,
 		3,
 		raycaster.AnchorTop,
-		loader.LoadAudioWav("cat.wav"),
+		loader.LoadAudioPlayer("cat.wav"),
 	)
 
 	// log.Printf("%v, %v", batCollisionRadius, batCollisionHeight)
@@ -340,8 +332,20 @@ func NewRock(coreTx RcTx) {
 		rockVelocity,
 		0,
 		raycaster.AnchorBottom,
-		loader.LoadAudioWav(""),
+		loader.LoadAudioPlayer(""),
 	)
 	// log.Printf("%v, %v", collisionRadius, collisionHeight)
 
+}
+
+func (c *Enemy) playAudio(e EventUpdateTick) {
+	if c.audioPlayer != nil && !c.audioPlayer.IsPlaying() && e.RgState.IsAnimationFirstFrame {
+		if err := c.audioPlayer.Rewind(); err != nil {
+			log.Printf("Warning: Audioplayer Rewind fail!")
+		} else {
+			log.Printf(" Audioplayer start play")
+			c.audioPlayer.SetVolume(0.5)
+			c.audioPlayer.Play()
+		}
+	}
 }

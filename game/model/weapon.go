@@ -62,11 +62,7 @@ func (w *Weapon) eventHandleUpdateTick(sender RcTx, e EventUpdateTick) error {
 	if w.fireWeapon.get() {
 		w.projectile.Spawn(sender, w.WeaponTemplate.projectile, e.PlayerEntity.RgId,
 			e.PlayerEntity.Position, e.PlayerEntity.Angle, e.PlayerEntity.Pitch)
-		if err := w.audioPlayer.Rewind(); err != nil {
-			log.Printf("Warning: Audioplayer Rewind fail!")
-		} else {
-			w.audioPlayer.Play()
-		}
+		w.playAudio(e)
 		if !e.RgState.AnimationRunning {
 			startAnimation := ReactorEventMessage{w.tx, EventMovement{
 				RgId:    w.rgData.Entity.RgId,
@@ -82,6 +78,15 @@ func (w *Weapon) eventHandleUpdateTick(sender RcTx, e EventUpdateTick) error {
 		}
 	}
 	return nil
+}
+
+func (w *Weapon) playAudio(e EventUpdateTick) {
+	if err := w.audioPlayer.Rewind(); err != nil {
+		log.Printf("Warning: Audioplayer Rewind fail!")
+	} else {
+		w.audioPlayer.SetVolume(0.5)
+		w.audioPlayer.Play()
+	}
 }
 
 func (r *Weapon) eventHandleCfgChanged(sender RcTx, e EventCfgChanged) {
@@ -108,7 +113,7 @@ func NewWeaponChargedBolt(coreTx RcTx) *WeaponTemplate {
 		Rows:          1,
 		AnimationRate: 7,
 	}
-	audioPlayer := loader.LoadAudioWav("blaster.mp3")
+	audioPlayer := loader.LoadAudioPlayer("blaster.mp3")
 	t := NewWeaponTemplate(coreTx, di, scale, projectile, RoF, audioPlayer)
 	return t
 }
@@ -125,7 +130,7 @@ func NewWeaponRedBolt(coreTx RcTx) *WeaponTemplate {
 		Rows:          1,
 		AnimationRate: 7,
 	}
-	audioPlayer := loader.LoadAudioWav("jab.wav")
+	audioPlayer := loader.LoadAudioPlayer("jab.wav")
 	t := NewWeaponTemplate(coreTx, di, scale, projectile, RoF, audioPlayer)
 	return t
 }

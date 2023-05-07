@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"lintech/rego/game/loader"
 	"log"
 	"math"
 	"math/rand"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/audio"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/spf13/viper"
 )
@@ -24,8 +26,9 @@ type Game struct {
 	menu   *DemoMenu
 	paused bool
 
-	cfg    GameCfg
-	coreTx RcTx
+	cfg         GameCfg
+	coreTx      RcTx
+	audioPlayer *audio.Player
 }
 
 func createSpritesFunc() func(coreTx RcTx) {
@@ -55,6 +58,7 @@ func (g *Game) Update() error {
 	// Becasue they have same count of Update Ticks.
 	// So we need create Sprite inside Game.Update in different Ticks.
 	createSprites(g.coreTx)
+	g.playBackGroundAudio()
 	g.handleInput()
 	if !g.paused {
 		m := ReactorEventMessage{g.tx, EventGameTick{}}
@@ -104,9 +108,10 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 func NewGame(coreTx RcTx, cfg GameCfg) *Game {
 	//loadCrosshairsResource()
 	t := &Game{
-		Reactor: NewReactor(),
-		cfg:     cfg,
-		coreTx:  coreTx,
+		Reactor:     NewReactor(),
+		cfg:         cfg,
+		coreTx:      coreTx,
+		audioPlayer: loader.LoadAudioPlayer("dark-castle-night.mp3"),
 	}
 	t.menu = t.createMenu()
 	return t
@@ -129,17 +134,9 @@ func CreateGame() *Game {
 	coreTx := NewCore(cfg)
 	g := NewGame(coreTx, cfg)
 
-	// Todo
-
 	// create crosshairs and weapon
 	NewCrosshairs(coreTx)
 	NewPlayer(coreTx)
-	for i := 0; i < 10; i++ {
-		// NewSorcerer(coreTx)
-		// NewWalker(coreTx)
-		// NewBat(coreTx)
-		// NewRock(coreTx)
-	}
 
 	// Todo
 	// init the sprites
@@ -150,6 +147,18 @@ func CreateGame() *Game {
 	// init menu system
 
 	return g
+}
+
+func (g *Game) playBackGroundAudio() {
+	if !g.audioPlayer.IsPlaying() {
+		if err := g.audioPlayer.Rewind(); err != nil {
+			log.Printf("Warning: Audioplayer Rewind fail!")
+		} else {
+			log.Printf(" Audioplayer start play")
+			g.audioPlayer.SetVolume(0.5)
+			g.audioPlayer.Play()
+		}
+	}
 }
 
 func initConfig() GameCfg {
