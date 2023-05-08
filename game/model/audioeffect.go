@@ -67,7 +67,6 @@ func (a *RegoAudioPlayer) Play(audioPosition, playerPosition Position, renderAud
 			audioPosition.X, audioPosition.Y)
 		if distance < renderAudioDistance {
 			volume := 1.0 - distance/renderAudioDistance
-			log.Printf(" Audioplayer distance: %v/%v, volume: %v", distance, renderAudioDistance, volume)
 			a.player.SetVolume(volume)
 			a.player.Play()
 		}
