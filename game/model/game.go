@@ -30,7 +30,7 @@ type Game struct {
 }
 
 func createSpritesFunc() func(coreTx RcTx) {
-	const max_gen_sprites = 1000
+	const max_gen_sprites = 10
 	var gened_sprites = 0
 
 	return func(coreTx RcTx) {
@@ -38,9 +38,9 @@ func createSpritesFunc() func(coreTx RcTx) {
 			r := rand.Intn(10)
 			if r == 1 {
 				NewSorcerer(coreTx)
-				// NewWalker(coreTx)
-				// NewBat(coreTx)
-				// NewRock(coreTx)
+				NewWalker(coreTx)
+				NewBat(coreTx)
+				NewRock(coreTx)
 				gened_sprites++
 			}
 		}

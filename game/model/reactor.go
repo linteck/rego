@@ -252,7 +252,7 @@ func NewReactor() Reactor {
 	//        It will be Dead Lock!!!
 	// 			  So we set Regoter chan buffer size to 100 and keep Core buffer size at 1.
 	//				So Core will not be blocked on Sending. And Regoter need wait Core.
-	c := make(chan ReactorEventMessage, 100)
+	c := make(chan ReactorEventMessage, 10)
 	rc := Reactor{c, c, true}
 	return rc
 }

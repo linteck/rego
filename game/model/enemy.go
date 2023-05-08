@@ -315,8 +315,8 @@ func NewRock(coreTx RcTx) {
 	rockCols, rockRows := 1, 1
 	rockVelocity := 0.0
 
-	x := 8.0
-	y := 5.5
+	y := float64(2+cnt/100)*rockCollisionRadius*4 + rockCollisionRadius*60
+	x := float64(2+cnt%100) * rockCollisionRadius * 4
 
 	NewEnemy(coreTx,
 		Position{X: x, Y: y, Z: 0},
