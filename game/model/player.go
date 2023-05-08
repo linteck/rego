@@ -1,7 +1,6 @@
 package model
 
 import (
-	"fmt"
 	"image/color"
 	"lintech/rego/game/loader"
 	"log"
@@ -19,8 +18,9 @@ const blessedCounterReset = 120
 
 type Player struct {
 	Reactor
-	rgData RegoterData
-	cfg    GameCfg
+	rgData       RegoterData
+	cfg          GameCfg
+	unregistered bool
 
 	health         ICooldownInt
 	mouse          MousePosition
@@ -36,30 +36,38 @@ type Player struct {
 func (r *Player) ProcessMessage(m ReactorEventMessage) error {
 	// log.Print(fmt.Sprintf("(%v) recv %T", r.thing.GetData().Entity.RgId, e))
 	switch m.event.(type) {
-	case EventUpdateTick:
-		r.eventHandleUpdateTick(m.sender, m.event.(EventUpdateTick))
-	case EventUpdateData:
-		r.eventHandleUpdateData(m.sender, m.event.(EventUpdateData))
-	case EventCfgChanged:
-		r.eventHandleCfgChanged(m.sender, m.event.(EventCfgChanged))
-	case EventCollision:
-		r.eventHandleCollision(m.sender, m.event.(EventCollision))
-	case EventDamage:
-		r.eventHandleDamage(m.sender, m.event.(EventDamage))
-	// case EventInput:
-	// 	r.eventHandleInput(m.sender, m.event.(EventInput))
+	case EventUnregisterConfirmed:
+		r.eventHandleUnregisterConfirmed(m.sender, m.event.(EventUnregisterConfirmed))
 	default:
-		r.eventHandleUnknown(m.sender, m.event)
+		if !r.unregistered {
+			switch m.event.(type) {
+			case EventUpdateTick:
+				r.eventHandleUpdateTick(m.sender, m.event.(EventUpdateTick))
+			case EventUnregisterConfirmed:
+				r.eventHandleUnregisterConfirmed(m.sender, m.event.(EventUnregisterConfirmed))
+			case EventCfgChanged:
+				r.eventHandleCfgChanged(m.sender, m.event.(EventCfgChanged))
+			case EventCollision:
+				r.eventHandleCollision(m.sender, m.event.(EventCollision))
+			case EventHealthChange:
+				r.eventHandleHealthChange(m.sender, m.event.(EventHealthChange))
+			// case EventInput:
+			// 	r.eventHandleInput(m.sender, m.event.(EventInput))
+			default:
+				r.eventHandleUnknown(m.sender, m.event)
+			}
+		}
 	}
 	return nil
 }
 
-func (r *Player) eventHandleDamage(sender RcTx, e EventDamage) {
-	health := r.health.add(-e.damage)
+func (r *Player) eventHandleHealthChange(sender RcTx, e EventHealthChange) {
+	health := r.health.add(-e.change)
 	if health < 0 {
 		//Game End
 		// m := ReactorEventMessage{r.tx, EventUnregisterRegoter{RgId: r.rgData.Entity.RgId}}
 		// sender <- m
+		// r.unregistered = true
 	}
 }
 
@@ -79,6 +87,7 @@ func NewPlayer(coreTx RcTx) RcTx {
 	entity := Entity{
 		RgId:            <-IdGen,
 		RgType:          RegoterEnumPlayer,
+		RgName:          "Player",
 		Position:        Position{X: 8.5, Y: 3.5, Z: 0},
 		Scale:           1,
 		Angle:           geom.Radians(60.0),
@@ -142,7 +151,7 @@ func (p *Player) SelectWeapon(coreTx RcTx, index int) {
 }
 func (p *Player) HolsterWeapon(coreTx RcTx) {
 	m := ReactorEventMessage{p.tx, EventHolsterWeapon{}}
-	coreTx <- m
+	p.weapon <- m
 }
 
 func (p *Player) fireWeapon() {
@@ -196,7 +205,8 @@ func isMoving(m Movement) bool {
 	}
 }
 
-func (p *Player) eventHandleUpdateTick(sender RcTx, e IReactorEvent) {
+func (p *Player) eventHandleUpdateTick(sender RcTx, e EventUpdateTick) {
+	p.rgData.Entity = e.RgEntity
 	p.nextWeaponFlag.cooldown()
 	p.health.cooldown()
 	movement, action := handlePlayerInput(p.cfg, &p.mouse)
@@ -224,8 +234,8 @@ func (p *Player) eventHandleUpdateTick(sender RcTx, e IReactorEvent) {
 		p.fireWeapon()
 	}
 
-	hm := ReactorEventMessage{p.tx, EventDebugPrint{DebugString: fmt.Sprintf("Health: %v", p.health)}}
-	sender <- hm
+	// hm := ReactorEventMessage{p.tx, EventDebugPrint{DebugString: fmt.Sprintf("Health: %v", p.health)}}
+	// sender <- hm
 	// if info, ok := p.drawWeapon(screenSize); ok {
 	// 	cu <- info
 	// }
@@ -238,8 +248,8 @@ func (p *Player) eventHandleUpdateTick(sender RcTx, e IReactorEvent) {
 	// }
 }
 
-func (p *Player) eventHandleUpdateData(sender RcTx, e EventUpdateData) {
-	p.rgData.Entity = e.RgEntity
+func (p *Player) eventHandleUnregisterConfirmed(sender RcTx, e EventUnregisterConfirmed) {
+	p.running = false
 }
 
 // // Move player by move speed in the forward/backward direction
@@ -360,11 +370,3 @@ func (p *Player) Prone() {
 // 		return info, false
 // 	}
 // }
-
-func (c *Player) SetConfig(cfg GameCfg) {
-	c.cfg = cfg
-}
-
-func (c *Player) GetData() RegoterData {
-	return c.rgData
-}

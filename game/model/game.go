@@ -2,7 +2,6 @@ package model
 
 import (
 	"fmt"
-	"lintech/rego/game/loader"
 	"log"
 	"math"
 	"math/rand"
@@ -12,7 +11,6 @@ import (
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/audio"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/spf13/viper"
 )
@@ -28,11 +26,11 @@ type Game struct {
 
 	cfg         GameCfg
 	coreTx      RcTx
-	audioPlayer *audio.Player
+	audioPlayer *RegoAudioPlayer
 }
 
 func createSpritesFunc() func(coreTx RcTx) {
-	const max_gen_sprites = 1
+	const max_gen_sprites = 1000
 	var gened_sprites = 0
 
 	return func(coreTx RcTx) {
@@ -58,7 +56,7 @@ func (g *Game) Update() error {
 	// Becasue they have same count of Update Ticks.
 	// So we need create Sprite inside Game.Update in different Ticks.
 	createSprites(g.coreTx)
-	g.playBackGroundAudio()
+	// g.playBackGroundAudio()
 	g.handleInput()
 	if !g.paused {
 		m := ReactorEventMessage{g.tx, EventGameTick{}}
@@ -75,7 +73,6 @@ func (g *Game) Run() {
 		log.Fatal("Reactor channel is not initialized!")
 	}
 	g.paused = false
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	log.Print("Start")
 	// Debug
 	//ebiten.SetTPS(1)
@@ -111,7 +108,7 @@ func NewGame(coreTx RcTx, cfg GameCfg) *Game {
 		Reactor:     NewReactor(),
 		cfg:         cfg,
 		coreTx:      coreTx,
-		audioPlayer: loader.LoadAudioPlayer("dark-castle-night.mp3"),
+		audioPlayer: LoadAudioPlayer("dark-castle-night.mp3"),
 	}
 	t.menu = t.createMenu()
 	return t
@@ -150,15 +147,7 @@ func CreateGame() *Game {
 }
 
 func (g *Game) playBackGroundAudio() {
-	if !g.audioPlayer.IsPlaying() {
-		if err := g.audioPlayer.Rewind(); err != nil {
-			log.Printf("Warning: Audioplayer Rewind fail!")
-		} else {
-			log.Printf(" Audioplayer start play")
-			g.audioPlayer.SetVolume(0.5)
-			g.audioPlayer.Play()
-		}
-	}
+	g.audioPlayer.PlayWithVolume(0.2, false)
 }
 
 func initConfig() GameCfg {
@@ -192,6 +181,7 @@ func initConfig() GameCfg {
 	viper.SetDefault("screen.fullscreen", false)
 	viper.SetDefault("screen.vsync", true)
 	viper.SetDefault("screen.renderDistance", -1)
+	viper.SetDefault("screen.renderAudioDistance", 50)
 	viper.SetDefault("screen.renderFloor", true)
 	viper.SetDefault("screen.fovDegrees", 68)
 
@@ -220,6 +210,7 @@ func initConfig() GameCfg {
 	cfg.Fullscreen = viper.GetBool("screen.fullscreen")
 	cfg.Vsync = viper.GetBool("screen.vsync")
 	cfg.RenderDistance = viper.GetFloat64("screen.renderDistance")
+	cfg.RenderAudioDistance = viper.GetFloat64("screen.renderAudioDistance")
 	cfg.RenderFloorTex = viper.GetBool("screen.renderFloor")
 	cfg.ShowSpriteBoxes = viper.GetBool("showSpriteBoxes")
 	// cfg.ShowSpriteBoxes = true

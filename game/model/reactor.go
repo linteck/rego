@@ -122,8 +122,9 @@ type GameCfg struct {
 	FovDegrees  float64
 	FovDepth    float64
 	// zoom settings
-	ZoomFovDepth   float64
-	RenderDistance float64
+	ZoomFovDepth        float64
+	RenderDistance      float64
+	RenderAudioDistance float64
 	// lighting settings
 	LightFalloff       float64
 	GlobalIllumination float64
@@ -186,9 +187,14 @@ type EventCollision struct {
 type EventDebugPrint struct {
 	DebugString string
 }
-type EventDamage struct {
+
+type EventDamagePeer struct {
 	peer   ID
 	damage int
+}
+
+type EventHealthChange struct {
+	change int
 }
 
 type EventCfgChanged struct {
@@ -213,10 +219,6 @@ type EventUpdateTick struct {
 	RgState      RegoterState
 	PlayerEntity Entity
 }
-type EventUpdateData struct {
-	RgEntity Entity
-	RgState  RegoterState
-}
 
 type EventGameTick struct{}
 
@@ -227,6 +229,9 @@ type EventRegisterRegoter struct {
 
 type EventUnregisterRegoter struct {
 	RgId ID
+}
+
+type EventUnregisterConfirmed struct {
 }
 
 type EventMovement struct {
@@ -247,7 +252,7 @@ func NewReactor() Reactor {
 	//        It will be Dead Lock!!!
 	// 			  So we set Regoter chan buffer size to 100 and keep Core buffer size at 1.
 	//				So Core will not be blocked on Sending. And Regoter need wait Core.
-	c := make(chan ReactorEventMessage, 10)
+	c := make(chan ReactorEventMessage, 100)
 	rc := Reactor{c, c, true}
 	return rc
 }

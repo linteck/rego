@@ -4,15 +4,11 @@ import (
 	"embed"
 	"image"
 	"image/color"
-	"io"
+	"io/fs"
 	"log"
-	"path"
 	"path/filepath"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/audio"
-	"github.com/hajimehoshi/ebiten/v2/audio/mp3"
-	"github.com/hajimehoshi/ebiten/v2/audio/wav"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
 
@@ -345,54 +341,10 @@ func GetSpriteFromFile(sFile string) *ebiten.Image {
 // 	delete(g.effects, effect)
 // }
 
-const (
-	audioContextSampleRate = 48000
-)
-
-var audioContext = audio.NewContext(audioContextSampleRate)
-
-func LoadAudioPlayer(fname string) *audio.Player {
-	if len(fname) == 0 {
-		return nil
-	}
-
+func LoadAudioFile(fname string) fs.File {
 	f, err := Embedded.Open("resources/audio/" + fname)
 	if err != nil {
 		log.Fatalf("Load audio file fail: %e", err)
 	}
-
-	// In this example, embedded resource "Jab_wav" is used.
-	//
-	// If you want to use a wav file, open this and pass the file stream to wav.Decode.
-	// Note that file's Close() should not be closed here
-	// since audio.Player manages stream state.
-	//
-	//     f, err := os.Open("jab.wav")
-	//     if err != nil {
-	//         return err
-	//     }
-	//
-	//     d, err := wav.DecodeWithoutResampling(f)
-	//     ...
-
-	// Decode wav-formatted data and retrieve decoded PCM stream.
-
-	var d io.Reader
-	switch ext := path.Ext(fname); ext {
-	case ".wav":
-		d, err = wav.DecodeWithSampleRate(audioContextSampleRate, f)
-	case ".mp3":
-		d, err = mp3.DecodeWithSampleRate(audioContextSampleRate, f)
-	default:
-		log.Fatal("Unsupported audo file ext ", ext)
-	}
-	if err != nil {
-		log.Fatalf("Decode audio file fail: %e", err)
-	}
-	// Create an audio.Player that has one stream.
-	audioPlayer, err := audioContext.NewPlayer(d)
-	if err != nil {
-		log.Fatalf("Create audio player fail: %e", err)
-	}
-	return audioPlayer
+	return f
 }

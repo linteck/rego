@@ -3,7 +3,6 @@ package model
 import (
 	"image"
 	"image/color"
-	"sort"
 )
 
 func (g *Core) miniMap() *image.RGBA {
@@ -29,33 +28,18 @@ func (g *Core) miniMap() *image.RGBA {
 	// draw sprite screen indicators to show we know where it was raycasted (must occur after camera.Update)
 	for _, t := range typesNeedDraw {
 		sl := g.rgs[t]
-		sl.ForEach(func(i ID, val *regoterInCore) {
+		for _, val := range sl {
 			if val.sprite != nil {
-				// sprite positions, sort by color to avoid random color getting chosen as last when using map keys
-				sprites := make([]*Entity, 0, sl.Len())
-				sl.ForEach(func(_ ID, s *regoterInCore) {
-					if s.entity.MapColor.A > 0 {
-						sprites = append(sprites, &s.entity)
-					}
-				})
-				sort.Slice(sprites, func(i, j int) bool {
-					iComp := (sprites[i].MapColor.R + sprites[i].MapColor.G + sprites[i].MapColor.B)
-					jComp := (sprites[j].MapColor.R + sprites[j].MapColor.G + sprites[j].MapColor.B)
-					return iComp < jComp
-				})
-
-				for _, sprite := range sprites {
-					m.Set(int(sprite.Position.X), int(sprite.Position.Y), sprite.MapColor)
-				}
+				m.Set(int(val.entity.Position.X), int(val.entity.Position.Y), val.entity.MapColor)
 			}
-		})
+		}
 	}
 
 	// player position
 	pl := g.rgs[RegoterEnumPlayer]
-	pl.ForEach(func(_ ID, p *regoterInCore) {
+	for _, p := range pl {
 		m.Set(int(p.entity.Position.X), int(p.entity.Position.Y), p.entity.MapColor)
-	})
+	}
 
 	return m
 }
