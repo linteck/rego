@@ -214,7 +214,7 @@ func (g *Core) eventHandleMovement(sender RcTx, e EventMovement) {
 			p.state.AnimationRunning = true
 		}
 	} else {
-		log.Printf("Warning: Can not find Regoter(%v) in Event(%T).", e.RgId, e)
+		log.Fatalf("Error: Can not find Regoter(%v) in Event(%T).", e.RgId, e)
 	}
 }
 
@@ -322,7 +322,7 @@ func (g *Core) eventHandleRegoterUnregister(sender RcTx, e EventUnregisterRegote
 	if e.RgId == NULL_ID || e.RgId == WALL_ID {
 		log.Fatalf("ID can not unregister invalide ID(%v).", e.RgId)
 	}
-	log.Printf("Unregister Regoter %v", e.RgId)
+	// log.Printf("Unregister Regoter %v", e.RgId)
 	for _, l := range g.rgs {
 		if v, ok := l[e.RgId]; ok {
 			m := ReactorEventMessage{g.tx, EventUnregisterConfirmed{}}

@@ -30,7 +30,7 @@ type Game struct {
 }
 
 func createSpritesFunc() func(coreTx RcTx) {
-	const max_gen_sprites = 1000
+	const max_gen_sprites = 1
 	var gened_sprites = 0
 
 	return func(coreTx RcTx) {
@@ -52,16 +52,15 @@ var createSprites = createSpritesFunc()
 // Update - Allows the game to run logic such as updating the world, gathering input, and playing audio.
 // Update is called every tick (1/60 [s] by default).
 func (g *Game) Update() error {
-	// If we add Same Sprites in CreateGame(), they will show same frame of Animation at each Tick.
-	// Becasue they have same count of Update Ticks.
-	// So we need create Sprite inside Game.Update in different Ticks.
-	createSprites(g.coreTx)
-	// g.playBackGroundAudio()
-	g.handleInput()
 	if !g.paused {
 		m := ReactorEventMessage{g.tx, EventGameTick{}}
 		g.coreTx <- m
 	}
+	// If we add Same Sprites in CreateGame(), they will show same frame of Animation at each Tick.
+	// Becasue they have same count of Update Ticks.
+	// So we need create Sprite inside Game.Update in different Ticks.
+	createSprites(g.coreTx)
+	g.handleInput()
 	// update the menu (if active)
 	g.menu.update()
 
@@ -86,6 +85,8 @@ func (g *Game) Run() {
 func (g *Game) Draw(screen *ebiten.Image) {
 	m := ReactorEventMessage{g.tx, EventDraw{Screen: screen}}
 	g.coreTx <- m
+	//While Core is drawing, we play background music
+	g.playBackGroundAudio()
 	<-g.rx
 
 	// draw menu (if active)
@@ -147,7 +148,7 @@ func CreateGame() *Game {
 }
 
 func (g *Game) playBackGroundAudio() {
-	g.audioPlayer.PlayWithVolume(0.2, false)
+	g.audioPlayer.PlayWithVolume(0.5, false)
 }
 
 func initConfig() GameCfg {
