@@ -1,9 +1,14 @@
 package main
 
-import "lintech/rego/game/model"
+import (
+	"lintech/rego/game/model"
+	"log"
+	_ "runtime/pprof"
+)
 
 func main() {
 	// run the game
-	g := model.CreateGame()
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	g := model.CreateGame(1)
 	g.Run()
 }

@@ -6,22 +6,24 @@ import (
 	"log"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/audio"
 	"github.com/harbdog/raycaster-go"
 )
 
 type WeaponTemplate struct {
 	rgData      RegoterData
 	projectile  *ProjectileTemplate
+	cfg         GameCfg
 	rateOfFire  float64
-	audioPlayer *audio.Player
+	audioPlayer *RegoAudioPlayer
 }
 
 type Weapon struct {
 	Reactor
 	WeaponTemplate
-	firing     bool
-	fireWeapon ICooldownFlag
+	coreTx       RcTx
+	firing       bool
+	fireWeapon   ICooldownFlag
+	unregistered bool
 	// fireWeapon bool
 }
 
@@ -38,23 +40,40 @@ var (
 func (r *Weapon) ProcessMessage(m ReactorEventMessage) error {
 	// log.Print(fmt.Sprintf("(%v) recv %T", r.thing.GetData().Entity.RgId, e))
 	switch m.event.(type) {
-	case EventUpdateTick:
-		r.eventHandleUpdateTick(m.sender, m.event.(EventUpdateTick))
-	case EventUpdateData:
-		r.eventHandleUpdateData(m.sender, m.event.(EventUpdateData))
-	case EventCfgChanged:
-		r.eventHandleCfgChanged(m.sender, m.event.(EventCfgChanged))
-	case EventFireWeapon:
-		r.eventHandleFireWeapon(m.sender, m.event.(EventFireWeapon))
+	case EventUnregisterConfirmed:
+		r.eventHandleUnregisterConfirmed(m.sender, m.event.(EventUnregisterConfirmed))
 	default:
-		r.eventHandleUnknown(m.sender, m.event)
+		if !r.unregistered {
+			switch m.event.(type) {
+			case EventUpdateTick:
+				r.eventHandleUpdateTick(m.sender, m.event.(EventUpdateTick))
+			case EventUnregisterConfirmed:
+				r.eventHandleUnregisterConfirmed(m.sender, m.event.(EventUnregisterConfirmed))
+			case EventCfgChanged:
+				r.eventHandleCfgChanged(m.sender, m.event.(EventCfgChanged))
+			case EventFireWeapon:
+				r.eventHandleFireWeapon(m.sender, m.event.(EventFireWeapon))
+			case EventHolsterWeapon:
+				r.eventHandleHolsterWeapon(m.sender, m.event.(EventHolsterWeapon))
+			default:
+				r.eventHandleUnknown(m.sender, m.event)
+			}
+		}
 	}
 	return nil
 }
 
 // Update the position and status of Regoter
 // And send new Position and status to IGame
-func (r *Weapon) eventHandleUpdateData(sender RcTx, e EventUpdateData) {
+func (r *Weapon) eventHandleUnregisterConfirmed(sender RcTx, e EventUnregisterConfirmed) {
+	r.running = false
+}
+
+func (w *Weapon) eventHandleHolsterWeapon(sender RcTx, e EventHolsterWeapon) {
+	m := ReactorEventMessage{w.tx, EventUnregisterRegoter{RgId: w.rgData.Entity.RgId}}
+	// Not send to sender. Sender is Player. We need send to Core.
+	w.coreTx <- m
+	w.unregistered = true
 }
 
 func (w *Weapon) eventHandleUpdateTick(sender RcTx, e EventUpdateTick) error {
@@ -62,11 +81,7 @@ func (w *Weapon) eventHandleUpdateTick(sender RcTx, e EventUpdateTick) error {
 	if w.fireWeapon.get() {
 		w.projectile.Spawn(sender, w.WeaponTemplate.projectile, e.PlayerEntity.RgId,
 			e.PlayerEntity.Position, e.PlayerEntity.Angle, e.PlayerEntity.Pitch)
-		if err := w.audioPlayer.Rewind(); err != nil {
-			log.Printf("Warning: Audioplayer Rewind fail!")
-		} else {
-			w.audioPlayer.Play()
-		}
+		// w.playAudio(e)
 		if !e.RgState.AnimationRunning {
 			startAnimation := ReactorEventMessage{w.tx, EventMovement{
 				RgId:    w.rgData.Entity.RgId,
@@ -84,7 +99,16 @@ func (w *Weapon) eventHandleUpdateTick(sender RcTx, e EventUpdateTick) error {
 	return nil
 }
 
-func (r *Weapon) eventHandleCfgChanged(sender RcTx, e EventCfgChanged) {
+func (w *Weapon) playAudio(e EventUpdateTick) {
+	// Weapon postion does not update.
+	// It is always with Player. So we jsut play audio with a fixed volume.
+	w.audioPlayer.PlayWithVolume(0.3, true)
+}
+
+func (w *Weapon) eventHandleCfgChanged(sender RcTx, e EventCfgChanged) {
+	// We need remember Core.
+	w.coreTx = sender
+	w.cfg = e.Cfg
 }
 func (w *Weapon) eventHandleFireWeapon(sender RcTx, e EventFireWeapon) error {
 	w.fireWeapon.set()
@@ -108,7 +132,7 @@ func NewWeaponChargedBolt(coreTx RcTx) *WeaponTemplate {
 		Rows:          1,
 		AnimationRate: 7,
 	}
-	audioPlayer := loader.LoadAudioWav("blaster.mp3")
+	audioPlayer := LoadAudioPlayer("blaster.mp3")
 	t := NewWeaponTemplate(coreTx, di, scale, projectile, RoF, audioPlayer)
 	return t
 }
@@ -125,7 +149,7 @@ func NewWeaponRedBolt(coreTx RcTx) *WeaponTemplate {
 		Rows:          1,
 		AnimationRate: 7,
 	}
-	audioPlayer := loader.LoadAudioWav("jab.wav")
+	audioPlayer := LoadAudioPlayer("jab.wav")
 	t := NewWeaponTemplate(coreTx, di, scale, projectile, RoF, audioPlayer)
 	return t
 }
@@ -138,11 +162,12 @@ func NewWeapons(coreTx RcTx) []*WeaponTemplate {
 }
 
 func NewWeaponTemplate(coreTx RcTx, di DrawInfo, scale float64,
-	projectile *ProjectileTemplate, rateOfFire float64, audioPlayer *audio.Player,
+	projectile *ProjectileTemplate, rateOfFire float64, audioPlayer *RegoAudioPlayer,
 ) *WeaponTemplate {
 	entity := Entity{
 		RgId:            <-IdGen,
 		RgType:          RegoterEnumWeapon,
+		RgName:          "Weapon",
 		Scale:           scale,
 		Position:        Position{X: 1, Y: 1, Z: 0},
 		MapColor:        color.RGBA{0, 0, 0, 0},

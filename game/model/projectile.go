@@ -11,31 +11,40 @@ import (
 type ProjectileTemplate struct {
 	rgData RegoterData
 	// Ricochets    int
-	lifespan int
-	harm     int
-	effect   *EffectTemplate
+	lifespan    int
+	harm        int
+	effect      *EffectTemplate
+	audioPlayer *RegoAudioPlayer
 }
 
 type Projectile struct {
 	Reactor
 	ProjectileTemplate
+	unregistered bool
 }
 
 func (r *Projectile) ProcessMessage(m ReactorEventMessage) error {
-	// log.Print(fmt.Sprintf("(%v) recv %T", r.thing.GetData().Entity.RgId, e))
 	switch m.event.(type) {
-	case EventUpdateTick:
-		r.eventHandleUpdateTick(m.sender, m.event.(EventUpdateTick))
-	case EventCollision:
-		r.eventHandleCollision(m.sender, m.event.(EventCollision))
-	case EventDamage:
-		r.eventHandleDamage(m.sender, m.event.(EventDamage))
-	case EventUpdateData:
-		r.eventHandleUpdateData(m.sender, m.event.(EventUpdateData))
-	case EventCfgChanged:
-		r.eventHandleCfgChanged(m.sender, m.event.(EventCfgChanged))
+	case EventUnregisterConfirmed:
+		r.eventHandleUnregisterConfirmed(m.sender, m.event.(EventUnregisterConfirmed))
 	default:
-		r.eventHandleUnknown(m.sender, m.event)
+		if !r.unregistered {
+			// log.Print(fmt.Sprintf("(%v) recv %T", r.thing.GetData().Entity.RgId, e))
+			switch m.event.(type) {
+			case EventUpdateTick:
+				r.eventHandleUpdateTick(m.sender, m.event.(EventUpdateTick))
+			case EventCollision:
+				r.eventHandleCollision(m.sender, m.event.(EventCollision))
+			case EventHealthChange:
+				r.eventHandleHealthChange(m.sender, m.event.(EventHealthChange))
+			case EventUnregisterConfirmed:
+				r.eventHandleUnregisterConfirmed(m.sender, m.event.(EventUnregisterConfirmed))
+			case EventCfgChanged:
+				r.eventHandleCfgChanged(m.sender, m.event.(EventCfgChanged))
+			default:
+				r.eventHandleUnknown(m.sender, m.event)
+			}
+		}
 	}
 	return nil
 }
@@ -45,7 +54,7 @@ func (r *Projectile) eventHandleUnknown(sender RcTx, e IReactorEvent) error {
 	return nil
 }
 
-func (r *Projectile) eventHandleDamage(sender RcTx, e EventDamage) {
+func (r *Projectile) eventHandleHealthChange(sender RcTx, e EventHealthChange) {
 }
 
 func (c *Projectile) eventHandleCollision(sender RcTx, e EventCollision) {
@@ -53,14 +62,14 @@ func (c *Projectile) eventHandleCollision(sender RcTx, e EventCollision) {
 		log.Fatalf("Info: Try to find NULL_ID(%v) in core", NULL_ID)
 	}
 	if e.collistion.peer != WALL_ID {
-		d := ReactorEventMessage{c.tx, EventDamage{peer: e.collistion.peer, damage: c.harm}}
+		d := ReactorEventMessage{c.tx, EventDamagePeer{peer: e.collistion.peer, damage: c.harm}}
 		sender <- d
 	}
 
 	m := ReactorEventMessage{c.tx, EventUnregisterRegoter{RgId: c.rgData.Entity.RgId}}
 	sender <- m
+	c.unregistered = true
 	c.effect.Spawn(sender, e.collistion.position)
-	c.running = false
 }
 
 func (c *Projectile) eventHandleUpdateTick(sender RcTx, e EventUpdateTick) {
@@ -70,7 +79,6 @@ func (c *Projectile) eventHandleUpdateTick(sender RcTx, e EventUpdateTick) {
 		m := ReactorEventMessage{c.tx, EventUnregisterRegoter{RgId: c.rgData.Entity.RgId}}
 		sender <- m
 		c.effect.Spawn(sender, e.RgEntity.Position)
-		c.running = false
 	} else {
 		m := ReactorEventMessage{c.tx, EventMovement{RgId: c.rgData.Entity.RgId,
 			Move: Movement{Velocity: c.rgData.Entity.Velocity}}}
@@ -79,11 +87,13 @@ func (c *Projectile) eventHandleUpdateTick(sender RcTx, e EventUpdateTick) {
 
 }
 
-func (c *Projectile) eventHandleUpdateData(sender RcTx, e EventUpdateData) {
+func (c *Projectile) eventHandleUnregisterConfirmed(sender RcTx, e EventUnregisterConfirmed) {
+	c.running = false
 }
 
 func (p *ProjectileTemplate) Spawn(coreTx RcTx, pt *ProjectileTemplate,
 	parentId ID, position Position, aimAngle float64, aimPitch float64) RcTx {
+	p.playAudio()
 	// Because weapon's location is higher than player feet.
 	position.Z = 0.3
 	return NewProjectile(coreTx, pt, parentId, position, aimAngle, aimPitch)
@@ -92,7 +102,9 @@ func (p *ProjectileTemplate) Spawn(coreTx RcTx, pt *ProjectileTemplate,
 func (c *Projectile) eventHandleCfgChanged(sender RcTx, e EventCfgChanged) {
 }
 
-func NewProjectile(coreTx RcTx, pt *ProjectileTemplate, parentId ID, position Position, aimAngle float64, aimPitch float64) RcTx {
+func NewProjectile(coreTx RcTx, pt *ProjectileTemplate, parentId ID, position Position,
+	aimAngle float64, aimPitch float64) RcTx {
+
 	p := &Projectile{
 		Reactor:            NewReactor(),
 		ProjectileTemplate: *pt,
@@ -111,12 +123,13 @@ func NewProjectile(coreTx RcTx, pt *ProjectileTemplate, parentId ID, position Po
 
 func NewProjectileTemplate(di DrawInfo,
 	scale float64, collision CollisionSpace, velocity float64,
-	effect *EffectTemplate, harm int,
+	effect *EffectTemplate, harm int, audioPlayer *RegoAudioPlayer,
 ) *ProjectileTemplate {
 	//loadCrosshairsResource()
 	entity := Entity{
 		RgId:            <-IdGen,
 		RgType:          RegoterEnumProjectile,
+		RgName:          "Projectile",
 		Scale:           scale,
 		Velocity:        velocity,
 		MapColor:        color.RGBA{0, 0, 255, 200},
@@ -129,9 +142,10 @@ func NewProjectileTemplate(di DrawInfo,
 			Entity:   entity,
 			DrawInfo: di,
 		},
-		effect:   effect,
-		harm:     harm,
-		lifespan: 100,
+		audioPlayer: audioPlayer,
+		effect:      effect,
+		harm:        harm,
+		lifespan:    100,
 	}
 
 	return t
@@ -155,8 +169,9 @@ func ProjectileChargedBolt(effect *EffectTemplate) *ProjectileTemplate {
 	chargedBoltCollisionHeight := 2 * chargedBoltCollisionRadius
 	collision := CollisionSpace{chargedBoltCollisionRadius, chargedBoltCollisionHeight}
 	chargedBoltVelocity := 0.5 // Velocity (as distance travelled/second)
+	audioPlayer := LoadAudioPlayer("blaster.mp3")
 	chargedBoltProjectile := NewProjectileTemplate(di,
-		chargedBoltScale, collision, chargedBoltVelocity, effect, 50)
+		chargedBoltScale, collision, chargedBoltVelocity, effect, 50, audioPlayer)
 
 	return chargedBoltProjectile
 }
@@ -179,8 +194,15 @@ func ProjectileRedBolt(effect *EffectTemplate) *ProjectileTemplate {
 	redBoltCollisionHeight := 2 * redBoltCollisionRadius
 	collision := CollisionSpace{redBoltCollisionRadius, redBoltCollisionHeight}
 	redBoltVelocity := 0.5 // Velocity (as distance travelled/second)
+	audioPlayer := LoadAudioPlayer("jab.wav")
 	redBoltProjectile := NewProjectileTemplate(di,
-		redBoltScale, collision, redBoltVelocity, effect, 30)
+		redBoltScale, collision, redBoltVelocity, effect, 30, audioPlayer)
 
 	return redBoltProjectile
+}
+
+func (w *ProjectileTemplate) playAudio() {
+	// Weapon postion does not update.
+	// It is always with Player. So we jsut play audio with a fixed volume.
+	w.audioPlayer.PlayWithVolume(0.3, true)
 }

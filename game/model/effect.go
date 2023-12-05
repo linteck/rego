@@ -11,6 +11,8 @@ import (
 type Effect struct {
 	Reactor
 	EffectTemplate
+	cfg          GameCfg
+	unregistered bool
 }
 
 type EffectTemplate struct {
@@ -21,12 +23,21 @@ type EffectTemplate struct {
 func (r *Effect) ProcessMessage(m ReactorEventMessage) error {
 	// log.Print(fmt.Sprintf("(%v) recv %T", r.thing.GetData().Entity.RgId, e))
 	switch m.event.(type) {
-	case EventUpdateTick:
-		r.eventHandleUpdateTick(m.sender, m.event.(EventUpdateTick))
-	case EventUpdateData:
-		r.eventHandleUpdateData(m.sender, m.event.(EventUpdateData))
+	case EventUnregisterConfirmed:
+		r.eventHandleUnregisterConfirmed(m.sender, m.event.(EventUnregisterConfirmed))
 	default:
-		r.eventHandleUnknown(m.sender, m.event)
+		if !r.unregistered {
+			switch m.event.(type) {
+			case EventUpdateTick:
+				r.eventHandleUpdateTick(m.sender, m.event.(EventUpdateTick))
+			case EventUnregisterConfirmed:
+				r.eventHandleUnregisterConfirmed(m.sender, m.event.(EventUnregisterConfirmed))
+			case EventCfgChanged:
+				r.eventHandleCfgChanged(m.sender, m.event.(EventCfgChanged))
+			default:
+				r.eventHandleUnknown(m.sender, m.event)
+			}
+		}
 	}
 	return nil
 }
@@ -41,6 +52,7 @@ func NewEffectTemplate(di DrawInfo, scale float64, loopCount int) *EffectTemplat
 	entity := Entity{
 		RgId:            <-IdGen,
 		RgType:          RegoterEnumSprite,
+		RgName:          "Effect",
 		Scale:           scale,
 		Velocity:        0,
 		MapColor:        color.RGBA{0, 0, 0, 0},
@@ -85,11 +97,12 @@ func (ef *Effect) eventHandleUpdateTick(sender RcTx, e EventUpdateTick) {
 	if e.RgState.AnimationLoopCnt >= ef.LoopCount {
 		m := ReactorEventMessage{ef.tx, EventUnregisterRegoter{RgId: ef.rgData.Entity.RgId}}
 		sender <- m
-		ef.running = false
+		ef.unregistered = true
 	}
 }
 
-func (ef *Effect) eventHandleUpdateData(sender RcTx, e EventUpdateData) {
+func (ef *Effect) eventHandleUnregisterConfirmed(sender RcTx, e EventUnregisterConfirmed) {
+	ef.running = false
 }
 
 func NewEffect(coreTx RcTx, et *EffectTemplate, position Position) RcTx {
@@ -111,5 +124,6 @@ func (ef *EffectTemplate) Spawn(coreTx RcTx, position Position) {
 	NewEffect(coreTx, ef, position)
 }
 
-func (c *Effect) eventHandleCfgChanged(sender RcTx, e EventCfgChanged) {
+func (r *Effect) eventHandleCfgChanged(sender RcTx, e EventCfgChanged) {
+	r.cfg = e.Cfg
 }

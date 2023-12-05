@@ -11,6 +11,7 @@ import (
 type Crosshairs struct {
 	Reactor
 	rgData RegoterData
+	cfg    GameCfg
 }
 
 func (r *Crosshairs) ProcessMessage(m ReactorEventMessage) error {
@@ -18,8 +19,10 @@ func (r *Crosshairs) ProcessMessage(m ReactorEventMessage) error {
 	switch m.event.(type) {
 	case EventUpdateTick:
 		r.eventHandleUpdateTick(m.sender, m.event.(EventUpdateTick))
-	case EventUpdateData:
-		r.eventHandleUpdateData(m.sender, m.event.(EventUpdateData))
+	case EventUnregisterConfirmed:
+		r.eventHandleUnregisterConfirmed(m.sender, m.event.(EventUnregisterConfirmed))
+	case EventCfgChanged:
+		r.eventHandleCfgChanged(m.sender, m.event.(EventCfgChanged))
 	default:
 		r.eventHandleUnknown(m.sender, m.event)
 	}
@@ -31,11 +34,16 @@ func (r *Crosshairs) eventHandleUnknown(sender RcTx, e IReactorEvent) error {
 	return nil
 }
 
+func (r *Crosshairs) eventHandleCfgChanged(sender RcTx, e EventCfgChanged) {
+	r.cfg = e.Cfg
+}
+
 func NewCrosshairs(coreTx RcTx) RcTx {
 	//loadCrosshairsResource()
 	entity := Entity{
 		RgId:            <-IdGen,
 		RgType:          RegoterEnumCrosshair,
+		RgName:          "Crosshairs",
 		Position:        Position{X: 5, Y: 5, Z: 0},
 		Scale:           2,
 		MapColor:        color.RGBA{255, 0, 0, 255},
@@ -78,7 +86,8 @@ func NewCrosshairs(coreTx RcTx) RcTx {
 func (c *Crosshairs) eventHandleUpdateTick(sender RcTx, e EventUpdateTick) {
 }
 
-func (c *Crosshairs) eventHandleUpdateData(sender RcTx, e EventUpdateData) {
+func (c *Crosshairs) eventHandleUnregisterConfirmed(sender RcTx, e EventUnregisterConfirmed) {
+	c.running = false
 }
 
 func (c *Crosshairs) SetConfig(cfg GameCfg) {

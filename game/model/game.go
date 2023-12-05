@@ -8,7 +8,6 @@ import (
 	"os"
 	"runtime"
 	"strings"
-	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -24,42 +23,41 @@ type Game struct {
 	menu   *DemoMenu
 	paused bool
 
-	cfg    GameCfg
-	coreTx RcTx
+	cfg           GameCfg
+	coreTx        RcTx
+	audioPlayer   *RegoAudioPlayer
+	createSprites func(RcTx)
 }
 
-func createSpritesFunc() func(coreTx RcTx) {
-	const max_gen_sprites = 1
+func createSpritesFunc(max_sprites int) func(coreTx RcTx) {
 	var gened_sprites = 0
-
+	max_gen_sprites := max_sprites
 	return func(coreTx RcTx) {
 		if gened_sprites < max_gen_sprites {
 			r := rand.Intn(10)
 			if r == 1 {
 				NewSorcerer(coreTx)
-				// NewWalker(coreTx)
-				// NewBat(coreTx)
-				// NewRock(coreTx)
+				NewWalker(coreTx)
+				NewBat(coreTx)
+				NewRock(coreTx)
 				gened_sprites++
 			}
 		}
 	}
 }
 
-var createSprites = createSpritesFunc()
-
 // Update - Allows the game to run logic such as updating the world, gathering input, and playing audio.
 // Update is called every tick (1/60 [s] by default).
 func (g *Game) Update() error {
-	// If we add Same Sprites in CreateGame(), they will show same frame of Animation at each Tick.
-	// Becasue they have same count of Update Ticks.
-	// So we need create Sprite inside Game.Update in different Ticks.
-	createSprites(g.coreTx)
-	g.handleInput()
 	if !g.paused {
 		m := ReactorEventMessage{g.tx, EventGameTick{}}
 		g.coreTx <- m
 	}
+	// If we add Same Sprites in CreateGame(), they will show same frame of Animation at each Tick.
+	// Becasue they have same count of Update Ticks.
+	// So we need create Sprite inside Game.Update in different Ticks.
+	g.createSprites(g.coreTx)
+	g.handleInput()
 	// update the menu (if active)
 	g.menu.update()
 
@@ -71,7 +69,6 @@ func (g *Game) Run() {
 		log.Fatal("Reactor channel is not initialized!")
 	}
 	g.paused = false
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	log.Print("Start")
 	// Debug
 	//ebiten.SetTPS(1)
@@ -85,6 +82,8 @@ func (g *Game) Run() {
 func (g *Game) Draw(screen *ebiten.Image) {
 	m := ReactorEventMessage{g.tx, EventDraw{Screen: screen}}
 	g.coreTx <- m
+	//While Core is drawing, we play background music
+	g.playBackGroundAudio()
 	<-g.rx
 
 	// draw menu (if active)
@@ -101,12 +100,14 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 	return int(w), int(h)
 }
 
-func NewGame(coreTx RcTx, cfg GameCfg) *Game {
+func NewGame(coreTx RcTx, cfg GameCfg, createSprites func(RcTx)) *Game {
 	//loadCrosshairsResource()
 	t := &Game{
-		Reactor: NewReactor(),
-		cfg:     cfg,
-		coreTx:  coreTx,
+		Reactor:       NewReactor(),
+		cfg:           cfg,
+		coreTx:        coreTx,
+		audioPlayer:   LoadAudioPlayer("dark-castle-night.mp3"),
+		createSprites: createSprites,
 	}
 	t.menu = t.createMenu()
 	return t
@@ -116,30 +117,23 @@ func NewGame(coreTx RcTx, cfg GameCfg) *Game {
 // This is where it can query for any required services and load any non-graphic
 // related content.  Calling base.Initialize will enumerate through any components
 // and initialize them as well.
-func CreateGame() *Game {
+func CreateGame(max_sprites int) *Game {
 	fmt.Printf("Initializing Game\n")
 	ebiten.SetWindowTitle("Rego Demo")
 	// default TPS is 60
 	// ebiten.SetMaxTPS(60)
 
-	rand.Seed(time.Now().UnixNano())
+	//rand.Seed(time.Now().UnixNano())
+	createSprites := createSpritesFunc(max_sprites)
 
 	// initialize Game object
 	cfg := initConfig()
 	coreTx := NewCore(cfg)
-	g := NewGame(coreTx, cfg)
-
-	// Todo
+	g := NewGame(coreTx, cfg, createSprites)
 
 	// create crosshairs and weapon
 	NewCrosshairs(coreTx)
 	NewPlayer(coreTx)
-	for i := 0; i < 10; i++ {
-		// NewSorcerer(coreTx)
-		// NewWalker(coreTx)
-		// NewBat(coreTx)
-		// NewRock(coreTx)
-	}
 
 	// Todo
 	// init the sprites
@@ -150,6 +144,10 @@ func CreateGame() *Game {
 	// init menu system
 
 	return g
+}
+
+func (g *Game) playBackGroundAudio() {
+	g.audioPlayer.PlayWithVolume(0.5, false)
 }
 
 func initConfig() GameCfg {
@@ -183,6 +181,7 @@ func initConfig() GameCfg {
 	viper.SetDefault("screen.fullscreen", false)
 	viper.SetDefault("screen.vsync", true)
 	viper.SetDefault("screen.renderDistance", -1)
+	viper.SetDefault("screen.renderAudioDistance", 50)
 	viper.SetDefault("screen.renderFloor", true)
 	viper.SetDefault("screen.fovDegrees", 68)
 
@@ -211,6 +210,7 @@ func initConfig() GameCfg {
 	cfg.Fullscreen = viper.GetBool("screen.fullscreen")
 	cfg.Vsync = viper.GetBool("screen.vsync")
 	cfg.RenderDistance = viper.GetFloat64("screen.renderDistance")
+	cfg.RenderAudioDistance = viper.GetFloat64("screen.renderAudioDistance")
 	cfg.RenderFloorTex = viper.GetBool("screen.renderFloor")
 	cfg.ShowSpriteBoxes = viper.GetBool("showSpriteBoxes")
 	// cfg.ShowSpriteBoxes = true

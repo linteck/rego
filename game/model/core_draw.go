@@ -28,17 +28,17 @@ func (g *Core) drawScreen(screen *ebiten.Image) {
 	raycastSpritesLen := 0
 	for _, t := range typesNeedRaycast {
 		sl := g.rgs[t]
-		raycastSpritesLen += sl.Len()
+		raycastSpritesLen += len(sl)
 	}
 
 	raycastSprites := make([]raycaster.Sprite, 0, raycastSpritesLen)
 	for _, t := range typesNeedRaycast {
 		sl := g.rgs[t]
-		sl.ForEach(func(i ID, val *regoterInCore) {
+		for _, val := range sl {
 			if val.sprite != nil {
 				raycastSprites = append(raycastSprites, val.sprite)
 			}
-		})
+		}
 	}
 
 	// Update camera (calculate raycast)
@@ -93,18 +93,18 @@ func (g *Core) drawSpriteBoxes(scene *ebiten.Image) {
 		// draw sprite screen indicators to show we know where it was raycasted (must occur after camera.Update)
 		for _, t := range typesNeedDrawbox {
 			sl := g.rgs[t]
-			sl.ForEach(func(i ID, val *regoterInCore) {
+			for _, val := range sl {
 				if val.sprite != nil {
 					drawSpriteBox(g.scene, val.sprite)
 				}
-			})
+			}
 		}
 	}
 
 }
 func (g *Core) drawWeapon(scene *ebiten.Image) {
 	sl := g.rgs[RegoterEnumWeapon]
-	sl.ForEach(func(i ID, val *regoterInCore) {
+	for _, val := range sl {
 		if val.sprite != nil {
 			op := &ebiten.DrawImageOptions{}
 			op.Filter = ebiten.FilterNearest
@@ -118,7 +118,7 @@ func (g *Core) drawWeapon(scene *ebiten.Image) {
 				float32(g.cfg.MaxLightRGB.B)/255, 1)
 			scene.DrawImage(val.sprite.Texture(), op)
 		}
-	})
+	}
 }
 
 func (g *Core) drawDebugInfo(screen *ebiten.Image) {
@@ -136,7 +136,7 @@ func (g *Core) drawDebugInfo(screen *ebiten.Image) {
 
 func (g *Core) drawCrosshairs(screen *ebiten.Image) {
 	cl := g.rgs[RegoterEnumCrosshair]
-	cl.ForEach(func(i ID, r *regoterInCore) {
+	for _, r := range cl {
 		op := &ebiten.DrawImageOptions{}
 		op.Filter = ebiten.FilterNearest
 
@@ -152,7 +152,7 @@ func (g *Core) drawCrosshairs(screen *ebiten.Image) {
 		// 	screen.DrawImage(g.crosshairs.HitIndicator.Texture(), op)
 		// 	g.crosshairs.Update()
 		// }
-	})
+	}
 }
 
 func (g *Core) drawMiniMap(screen *ebiten.Image) {

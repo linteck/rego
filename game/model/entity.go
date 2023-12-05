@@ -15,6 +15,7 @@ type Position struct {
 type Entity struct {
 	RgId            ID
 	RgType          RegoterEnum
+	RgName          string
 	Position        Position
 	Scale           float64
 	Anchor          raycaster.SpriteAnchor

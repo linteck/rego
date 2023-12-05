@@ -5,7 +5,6 @@ import (
 	"log"
 	"math/rand"
 
-	"github.com/hajimehoshi/ebiten/v2/audio"
 	"github.com/harbdog/raycaster-go"
 	"github.com/harbdog/raycaster-go/geom"
 )
@@ -15,25 +14,34 @@ const fullHealth = 100
 type Enemy struct {
 	Reactor
 	rgData           RegoterData
+	cfg              GameCfg
+	unregistered     bool
 	health           int
 	collistionRotate float64
 	harm             int
-	audioPlayer      *audio.Player
+	audioPlayer      *RegoAudioPlayer
 }
 
 func (r *Enemy) ProcessMessage(m ReactorEventMessage) error {
 	// log.Print(fmt.Sprintf("(%v) recv %T", r.thing.GetData().Entity.RgId, e))
 	switch m.event.(type) {
-	case EventCollision:
-		r.eventHandleCollision(m.sender, m.event.(EventCollision))
-	case EventDamage:
-		r.eventHandleDamage(m.sender, m.event.(EventDamage))
-	case EventUpdateTick:
-		r.eventHandleUpdateTick(m.sender, m.event.(EventUpdateTick))
-	case EventUpdateData:
-		r.eventHandleUpdateData(m.sender, m.event.(EventUpdateData))
+	case EventUnregisterConfirmed:
+		r.eventHandleUnregisterConfirmed(m.sender, m.event.(EventUnregisterConfirmed))
 	default:
-		r.eventHandleUnknown(m.sender, m.event)
+		if !r.unregistered {
+			switch m.event.(type) {
+			case EventCollision:
+				r.eventHandleCollision(m.sender, m.event.(EventCollision))
+			case EventHealthChange:
+				r.eventHandleHealthChange(m.sender, m.event.(EventHealthChange))
+			case EventUpdateTick:
+				r.eventHandleUpdateTick(m.sender, m.event.(EventUpdateTick))
+			case EventCfgChanged:
+				r.eventHandleCfgChanged(m.sender, m.event.(EventCfgChanged))
+			default:
+				r.eventHandleUnknown(m.sender, m.event)
+			}
+		}
 	}
 	return nil
 }
@@ -43,11 +51,16 @@ func (r *Enemy) eventHandleUnknown(sender RcTx, e IReactorEvent) error {
 	return nil
 }
 
-func (r *Enemy) eventHandleDamage(sender RcTx, e EventDamage) {
-	r.health -= e.damage
+func (r *Enemy) eventHandleCfgChanged(sender RcTx, e EventCfgChanged) {
+	r.cfg = e.Cfg
+}
+
+func (r *Enemy) eventHandleHealthChange(sender RcTx, e EventHealthChange) {
+	r.health -= e.change
 	if r.health < 0 {
 		m := ReactorEventMessage{r.tx, EventUnregisterRegoter{RgId: r.rgData.Entity.RgId}}
 		sender <- m
+		r.unregistered = true
 	}
 
 }
@@ -56,8 +69,8 @@ func (c *Enemy) eventHandleCollision(sender RcTx, e EventCollision) {
 	if e.collistion.peer == NULL_ID {
 		log.Fatalf("Info: Try to find NULL_ID(%v) in core", NULL_ID)
 	}
-	if e.collistion.peer != WALL_ID {
-		m := ReactorEventMessage{c.tx, EventDamage{peer: e.collistion.peer, damage: c.harm}}
+	if e.collistion.peer != WALL_ID && c.harm != 0 {
+		m := ReactorEventMessage{c.tx, EventDamagePeer{peer: e.collistion.peer, damage: c.harm}}
 		sender <- m
 	}
 	c.collistionRotate = rand.Float64() * geom.Pi2
@@ -66,12 +79,13 @@ func (c *Enemy) eventHandleCollision(sender RcTx, e EventCollision) {
 func NewEnemy(coreTx RcTx,
 	po Position, di DrawInfo, scale float64,
 	cp CollisionSpace, velocity float64, harm int,
-	anchor raycaster.SpriteAnchor, audioPlayer *audio.Player,
+	anchor raycaster.SpriteAnchor, audioPlayer *RegoAudioPlayer,
 ) RcTx {
 	//loadEnemyResource()
 	entity := Entity{
 		RgId:            <-IdGen,
 		RgType:          RegoterEnumSprite,
+		RgName:          "Enemy",
 		Position:        po,
 		Scale:           scale,
 		MapColor:        yellow,
@@ -108,7 +122,7 @@ func NewEnemy(coreTx RcTx,
 //		return c.HitIndicator != nil && c.hitTimer > 0
 //	}
 func (c *Enemy) eventHandleUpdateTick(sender RcTx, e EventUpdateTick) {
-	// Debug
+	c.rgData.Entity = e.RgEntity
 	movement := Movement{
 		Velocity: c.rgData.Entity.Velocity,
 	}
@@ -120,32 +134,12 @@ func (c *Enemy) eventHandleUpdateTick(sender RcTx, e EventUpdateTick) {
 		v := EventMovement{RgId: c.rgData.Entity.RgId, Move: movement}
 		m := ReactorEventMessage{c.tx, v}
 		sender <- m
-		if c.audioPlayer != nil && !c.audioPlayer.IsPlaying() && e.RgState.IsAnimationFirstFrame {
-			if err := c.audioPlayer.Rewind(); err != nil {
-				log.Printf("Warning: Audioplayer Rewind fail!")
-			} else {
-				log.Printf(" Audioplayer start play")
-				c.audioPlayer.SetVolume(0.5)
-				c.audioPlayer.Play()
-			}
-		}
+		c.playAudio(e)
 	}
 }
 
-func (c *Enemy) eventHandleUpdateData(sender RcTx, e EventUpdateData) {
-
-	c.rgData.Entity = e.RgEntity
-
-	// log.Printf("Update Data %+v", c.rgData.Entity)
-	//log.Printf("enemy: %+v", rgEntity)
-	// c.health -= rgState.HitHarm
-	if c.health <= 0 {
-		// Send Unregister to show 'Die'
-		e := EventUnregisterRegoter{RgId: c.rgData.Entity.RgId}
-		m := ReactorEventMessage{c.tx, e}
-		sender <- m
-	}
-
+func (c *Enemy) eventHandleUnregisterConfirmed(sender RcTx, e EventUnregisterConfirmed) {
+	c.running = false
 }
 
 func (c *Enemy) SetConfig(cfg GameCfg) {
@@ -189,7 +183,7 @@ func NewSorcerer(conrTx RcTx) {
 		sorcVelocity,
 		10,
 		raycaster.AnchorBottom,
-		loader.LoadAudioWav("swinging-whoosh.mp3"),
+		LoadAudioPlayer("swinging-whoosh.mp3"),
 	)
 	// log.Printf("%v, %v", collisionRadius, collisionHeight)
 
@@ -243,7 +237,7 @@ func NewWalker(coreTx RcTx) {
 		walkerVelocity,
 		5,
 		raycaster.AnchorBottom,
-		loader.LoadAudioWav("werewolf.wav"),
+		LoadAudioPlayer("werewolf.wav"),
 	)
 
 	// log.Printf("%v, %v", walkerCollisionRadius, walkerCollisionHeight)
@@ -303,7 +297,7 @@ func NewBat(coreTx RcTx) {
 		batVelocity,
 		3,
 		raycaster.AnchorTop,
-		loader.LoadAudioWav("cat.wav"),
+		LoadAudioPlayer("cat.wav"),
 	)
 
 	// log.Printf("%v, %v", batCollisionRadius, batCollisionHeight)
@@ -321,8 +315,8 @@ func NewRock(coreTx RcTx) {
 	rockCols, rockRows := 1, 1
 	rockVelocity := 0.0
 
-	x := 8.0
-	y := 5.5
+	y := float64(2+cnt/100)*rockCollisionRadius*4 + rockCollisionRadius*60
+	x := float64(2+cnt%100) * rockCollisionRadius * 4
 
 	NewEnemy(coreTx,
 		Position{X: x, Y: y, Z: 0},
@@ -340,8 +334,14 @@ func NewRock(coreTx RcTx) {
 		rockVelocity,
 		0,
 		raycaster.AnchorBottom,
-		loader.LoadAudioWav(""),
+		nil,
 	)
 	// log.Printf("%v, %v", collisionRadius, collisionHeight)
 
+}
+
+func (c *Enemy) playAudio(e EventUpdateTick) {
+	if c.audioPlayer != nil && e.RgState.IsAnimationFirstFrame {
+		c.audioPlayer.Play(e.RgEntity.Position, e.PlayerEntity.Position, c.cfg.RenderAudioDistance)
+	}
 }

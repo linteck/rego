@@ -34,7 +34,7 @@ var allRegoterEnum = [...]RegoterEnum{
 type Core struct {
 	Reactor
 	cfg GameCfg
-	rgs [len(allRegoterEnum)]*stl4go.SkipList[ID, *regoterInCore]
+	rgs [len(allRegoterEnum)]map[ID]*regoterInCore
 
 	// Camera
 	camera        *raycaster.Camera
@@ -53,8 +53,6 @@ func (g *Core) ProcessMessage(m ReactorEventMessage) error {
 	case EventDebugPrint:
 		g.eventHandleEventDebugPrint(m.sender, m.event.(EventDebugPrint))
 
-	case EventHolsterWeapon:
-		g.eventHandleHolsterWeapon(m.sender, m.event.(EventHolsterWeapon))
 	case EventGameTick:
 		g.eventHandleGameEventTick(m.sender, m.event.(EventGameTick))
 
@@ -73,8 +71,8 @@ func (g *Core) ProcessMessage(m ReactorEventMessage) error {
 	case EventMovement:
 		g.eventHandleMovement(m.sender, m.event.(EventMovement))
 
-	case EventDamage:
-		g.eventHandleDamage(m.sender, m.event.(EventDamage))
+	case EventDamagePeer:
+		g.eventHandleDamage(m.sender, m.event.(EventDamagePeer))
 	default:
 		g.eventHandleUnknown(m.sender, m.event)
 	}
@@ -86,29 +84,26 @@ func (g *Core) getPlayer() *regoterInCore {
 	// check sprite against player collision
 	var player *regoterInCore = nil
 	pl := g.rgs[RegoterEnumPlayer]
-	if pl.Len() > 0 {
-		player = pl.Iterate().Value()
+	for _, v := range pl {
+		player = v
 	}
 	return player
 }
 
-func (g *Core) eventHandleHolsterWeapon(sender RcTx, e EventHolsterWeapon) {
-	pl := g.rgs[RegoterEnumWeapon]
-	pl.Clear()
-}
-
 func (g *Core) eventHandleGameEventTick(sender RcTx, e EventGameTick) {
 	player := g.getPlayer()
-	for _, l := range g.rgs {
-		l.ForEach(func(k ID, v *regoterInCore) {
-			m := ReactorEventMessage{g.tx,
-				EventUpdateTick{RgState: v.state, RgEntity: v.entity, PlayerEntity: player.entity}}
-			v.tx <- m
-		})
+	if player != nil {
+		for _, l := range g.rgs {
+			for _, v := range l {
+				m := ReactorEventMessage{g.tx,
+					EventUpdateTick{RgState: v.state, RgEntity: v.entity, PlayerEntity: player.entity}}
+				v.tx <- m
+			}
+		}
 	}
 
 	for _, l := range g.rgs {
-		l.ForEach(func(k ID, v *regoterInCore) {
+		for _, v := range l {
 			if v.sprite != nil {
 				if !v.state.AnimationRunning {
 					v.sprite.ResetAnimation()
@@ -120,7 +115,7 @@ func (g *Core) eventHandleGameEventTick(sender RcTx, e EventGameTick) {
 					v.state.IsAnimationFirstFrame = v.sprite.IsLoopFirstFrame()
 				}
 			}
-		})
+		}
 	}
 
 }
@@ -129,10 +124,10 @@ func (g *Core) eventHandleGameEventCfgChanged(sender RcTx, e EventCfgChanged) {
 	if g.cfg != e.Cfg {
 		g.cfg = e.Cfg
 		for _, l := range g.rgs {
-			l.ForEach(func(k ID, v *regoterInCore) {
-				e := ReactorEventMessage{g.tx, EventCfgChanged{}}
+			for _, v := range l {
+				e := ReactorEventMessage{g.tx, EventCfgChanged{Cfg: g.cfg}}
 				v.tx <- e
-			})
+			}
 		}
 		// log.Print(fmt.Sprintf("current rg num %v", g.rgs.Len()))
 		g.applyConfig()
@@ -178,7 +173,10 @@ func (g *Core) eventHandleRegisterRegoter(sender RcTx, e EventRegisterRegoter) {
 	}
 	rg.state.AnimationRunning = true
 	rg.sprite = createCoreSprite(rg)
-	g.rgs[rg.rgType].Insert(d.Entity.RgId, rg)
+	g.rgs[rg.rgType][d.Entity.RgId] = rg
+	// Send cfg to newly registered Regoter
+	m := ReactorEventMessage{g.tx, EventCfgChanged{Cfg: g.cfg}}
+	rg.tx <- m
 }
 
 // func (g *Core) eventHandleUpdatedImg(e RegoterEventUpdatedImg) {
@@ -194,9 +192,9 @@ func (g *Core) findRegoter(id ID) (*regoterInCore, bool) {
 		log.Printf("Info: Try to find WALL_ID(%v) in core", WALL_ID)
 	} else {
 		for _, l := range g.rgs {
-			r := l.Find(id)
+			r := l[id]
 			if r != nil {
-				return *r, true
+				return r, true
 			}
 		}
 	}
@@ -215,21 +213,18 @@ func (g *Core) eventHandleMovement(sender RcTx, e EventMovement) {
 		if e.Command.StartAnimation {
 			p.state.AnimationRunning = true
 		}
-		e := EventUpdateData{RgEntity: p.entity, RgState: p.state}
-		m := ReactorEventMessage{g.tx, e}
-		p.tx <- m
 	} else {
-		log.Printf("Warning: Can not find Regoter(%v) in Event(%T).", e.RgId, e)
+		log.Fatalf("Error: Can not find Regoter(%v) in Event(%T).", e.RgId, e)
 	}
 }
 
-func (g *Core) eventHandleDamage(sender RcTx, e EventDamage) {
+func (g *Core) eventHandleDamage(sender RcTx, e EventDamagePeer) {
 	if e.peer == NULL_ID {
 		log.Fatalf("ID can not be NULL_ID(%v).", NULL_ID)
 	}
 	if e.peer != WALL_ID {
 		if p, ok := g.findRegoter(e.peer); ok {
-			m := ReactorEventMessage{g.tx, EventDamage{peer: 0, damage: e.damage}}
+			m := ReactorEventMessage{g.tx, EventHealthChange{change: e.damage}}
 			p.tx <- m
 		} else {
 			log.Printf("Warning: Can not find Regoter(%v) in Event(%T).", e.peer, e)
@@ -324,10 +319,15 @@ func limitVelocity(velocity float64, max float64) float64 {
 }
 
 func (g *Core) eventHandleRegoterUnregister(sender RcTx, e EventUnregisterRegoter) {
+	if e.RgId == NULL_ID || e.RgId == WALL_ID {
+		log.Fatalf("ID can not unregister invalide ID(%v).", e.RgId)
+	}
+	// log.Printf("Unregister Regoter %v", e.RgId)
 	for _, l := range g.rgs {
-		r := l.Remove(e.RgId)
-		if r {
-			return
+		if v, ok := l[e.RgId]; ok {
+			m := ReactorEventMessage{g.tx, EventUnregisterConfirmed{}}
+			v.tx <- m
+			delete(l, e.RgId)
 		}
 	}
 }
@@ -339,9 +339,9 @@ func (g *Core) eventHandleUnknown(sender RcTx, e IReactorEvent) error {
 
 func NewCore(cfg GameCfg) RcTx {
 	rc := NewReactorCore()
-	var rgs [len(allRegoterEnum)]*stl4go.SkipList[ID, *regoterInCore]
+	var rgs [len(allRegoterEnum)]map[ID]*regoterInCore
 	for i := 0; i < len(rgs); i++ {
-		rgs[i] = stl4go.NewSkipList[ID, *regoterInCore]()
+		rgs[i] = map[ID]*regoterInCore{}
 	}
 
 	// load map
