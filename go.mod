@@ -22,7 +22,7 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/exp v0.0.0-20231127185646-65229373498e // indirect
 	golang.org/x/exp/shiny v0.0.0-20231127185646-65229373498e // indirect
-	golang.org/x/text v0.14.0 // indirect
+	golang.org/x/text v0.16.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
@@ -35,8 +35,8 @@ require (
 	github.com/harbdog/raycaster-go v1.9.0
 	github.com/jezek/xgb v1.1.1 // indirect
 	github.com/spf13/viper v1.17.0
-	golang.org/x/image v0.14.0
+	golang.org/x/image v0.18.0
 	golang.org/x/mobile v0.0.0-20231127183840-76ac6878050a // indirect
-	golang.org/x/sync v0.5.0 // indirect
+	golang.org/x/sync v0.7.0 // indirect
 	golang.org/x/sys v0.15.0 // indirect
 )
