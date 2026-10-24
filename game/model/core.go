@@ -2,9 +2,10 @@ package model
 
 import (
 	"image/color"
-	"lintech/rego/game/loader"
 	"log"
 	"math"
+
+	"lintech/rego/game/loader"
 
 	"github.com/chen3feng/stl4go"
 	"github.com/hajimehoshi/ebiten/v2"
@@ -95,8 +96,10 @@ func (g *Core) eventHandleGameEventTick(sender RcTx, e EventGameTick) {
 	if player != nil {
 		for _, l := range g.rgs {
 			for _, v := range l {
-				m := ReactorEventMessage{g.tx,
-					EventUpdateTick{RgState: v.state, RgEntity: v.entity, PlayerEntity: player.entity}}
+				m := ReactorEventMessage{
+					g.tx,
+					EventUpdateTick{RgState: v.state, RgEntity: v.entity, PlayerEntity: player.entity},
+				}
 				v.tx <- m
 			}
 		}
@@ -117,7 +120,6 @@ func (g *Core) eventHandleGameEventTick(sender RcTx, e EventGameTick) {
 			}
 		}
 	}
-
 }
 
 func (g *Core) eventHandleGameEventCfgChanged(sender RcTx, e EventCfgChanged) {
@@ -141,7 +143,9 @@ func (g *Core) eventHandleEventDebugPrint(sender RcTx, e EventDebugPrint) {
 func createCoreSprite(rg *regoterInCore) *Sprite {
 	var sprite *Sprite
 	if rg.di.Img == nil {
-		log.Printf("Warning!!! Register Regoter without Img. Will not create Sprite for it.")
+		if rg.rgType != RegoterEnumPlayer {
+			log.Printf("Warning!!! Register Regoter without Img. Will not create Sprite for it. %v", rg.rgType)
+		}
 		return nil
 	}
 	if rg.di.AnimationRate != 0 {
@@ -159,7 +163,6 @@ func createCoreSprite(rg *regoterInCore) *Sprite {
 	sprite.SetIllumination(rg.di.Illumination)
 
 	return sprite
-
 }
 
 func (g *Core) eventHandleRegisterRegoter(sender RcTx, e EventRegisterRegoter) {
@@ -261,15 +264,19 @@ func (g *Core) updatedMove(p *regoterInCore, sender RcTx, e EventMovement) bool 
 		if collisionEntity != nil {
 			// Send EventCollistion to both Entities in collistion
 			sender <- ReactorEventMessage{
-				g.tx, EventCollision{collistion: *collisionEntity}}
+				g.tx, EventCollision{collistion: *collisionEntity},
+			}
 
 			peerId := collisionEntity.peer
 			if peerId != WALL_ID {
 				if rg, ok := g.findRegoter(peerId); ok {
-					collisionForPeer := EntityCollision{peer: pe.RgId, distance: collisionEntity.distance,
-						position: collisionEntity.position}
+					collisionForPeer := EntityCollision{
+						peer: pe.RgId, distance: collisionEntity.distance,
+						position: collisionEntity.position,
+					}
 					rg.tx <- ReactorEventMessage{
-						g.tx, EventCollision{collistion: collisionForPeer}}
+						g.tx, EventCollision{collistion: collisionForPeer},
+					}
 				} else {
 					log.Printf("Warning: Can not find Peer Regoter(%v) in Event(%T).", peerId, e)
 				}
@@ -277,10 +284,13 @@ func (g *Core) updatedMove(p *regoterInCore, sender RcTx, e EventMovement) bool 
 		} else {
 			if lineEnd.Z < -1 {
 				// Hit ground
-				collision := EntityCollision{peer: WALL_ID, distance: 0,
-					position: *lineEnd}
+				collision := EntityCollision{
+					peer: WALL_ID, distance: 0,
+					position: *lineEnd,
+				}
 				sender <- ReactorEventMessage{
-					g.tx, EventCollision{collistion: collision}}
+					g.tx, EventCollision{collistion: collision},
+				}
 			}
 		}
 
@@ -354,7 +364,8 @@ func NewCore(cfg GameCfg) RcTx {
 	mapHeight := len(worldMap[0])
 
 	debugMessages := stl4go.NewDList[string]()
-	core := &Core{Reactor: rc, rgs: rgs,
+	core := &Core{
+		Reactor: rc, rgs: rgs,
 		mapObj: mapObj, collisionMap: collisionMap,
 		mapWidth: mapWidth, mapHeight: mapHeight,
 		debugMessages: debugMessages, tex: tex, cfg: cfg,
@@ -365,6 +376,7 @@ func NewCore(cfg GameCfg) RcTx {
 	go core.Reactor.Run(core)
 	return core.tx
 }
+
 func (core *Core) applyConfig() {
 	cfg := core.cfg
 	//--init camera and renderer--//
@@ -401,7 +413,6 @@ func (core *Core) applyConfig() {
 	minLightRGB := color.NRGBA{R: 76, G: 76, B: 76}
 	maxLightRGB := color.NRGBA{R: 255, G: 255, B: 255}
 	core.setLightRGB(minLightRGB, maxLightRGB)
-
 }
 
 // Update camera to match player position and orientation

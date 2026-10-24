@@ -3,9 +3,10 @@ package model
 import (
 	"io"
 	"io/fs"
-	"lintech/rego/game/loader"
 	"log"
 	"path"
+
+	"lintech/rego/game/loader"
 
 	"github.com/hajimehoshi/ebiten/v2/audio"
 	"github.com/hajimehoshi/ebiten/v2/audio/mp3"
@@ -54,6 +55,10 @@ func LoadAudioPlayer(fname string) *RegoAudioPlayer {
 func (a *RegoAudioPlayer) Close() {
 	a.player.Close()
 	a.audioFile.Close()
+}
+
+func (a *RegoAudioPlayer) Pause() {
+	a.player.PauseAndStopReading()
 }
 
 func (a *RegoAudioPlayer) Play(audioPosition, playerPosition Position, renderAudioDistance float64) {

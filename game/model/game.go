@@ -30,7 +30,7 @@ type Game struct {
 }
 
 func createSpritesFunc(max_sprites int) func(coreTx RcTx) {
-	var gened_sprites = 0
+	gened_sprites := 0
 	max_gen_sprites := max_sprites
 	return func(coreTx RcTx) {
 		if gened_sprites < max_gen_sprites {
@@ -82,7 +82,7 @@ func (g *Game) Run() {
 func (g *Game) Draw(screen *ebiten.Image) {
 	m := ReactorEventMessage{g.tx, EventDraw{Screen: screen}}
 	g.coreTx <- m
-	//While Core is drawing, we play background music
+	// While Core is drawing, we play background music
 	g.playBackGroundAudio()
 	<-g.rx
 
@@ -282,5 +282,4 @@ func (g *Game) handleInput() bool {
 	}
 
 	return g.menu.active
-
 }
